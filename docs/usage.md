@@ -63,6 +63,16 @@ Optional personal mention mode also needs message event subscriptions and the ma
 
 After installing the Slack app, create an app-level token with Socket Mode enabled.
 
+First-time map of the Slack values you need:
+
+| `.env` value | Slack dashboard location |
+| --- | --- |
+| `SLACK_CLIENT_ID` | `Basic Information` -> `App Credentials` -> `Client ID` |
+| `SLACK_CLIENT_SECRET` | `Basic Information` -> `App Credentials` -> `Client Secret` |
+| `SLACK_APP_TOKEN` | `Basic Information` -> `App-Level Tokens` -> generate a token with `connections:write` |
+
+Do not open the local callback URL directly. Run `sig slack login`; Slack will redirect to the callback URL after you approve the app. See [Slack OAuth Login](slack-oauth.md) for the click-by-click first-time setup.
+
 ## 2. Configure Environment
 
 ```bash

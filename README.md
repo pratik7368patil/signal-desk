@@ -22,7 +22,15 @@ The npm package is scoped as `@pratik7368patil/signald`; the installed command n
 npm install
 ```
 
-2. Create Slack tokens and enable Socket Mode using `slack-app-manifest.yaml`.
+2. Create a Slack app from `slack-app-manifest.yaml`.
+
+In Slack's app dashboard, click `Create New App`, choose `From an app manifest`, select your workspace, choose `YAML`, and paste `slack-app-manifest.yaml`.
+
+Then copy these values into `.env`:
+
+- `SLACK_CLIENT_ID`: `Basic Information` -> `App Credentials` -> `Client ID`
+- `SLACK_CLIENT_SECRET`: `Basic Information` -> `App Credentials` -> `Client Secret`
+- `SLACK_APP_TOKEN`: `Basic Information` -> `App-Level Tokens` -> generate a token with `connections:write`
 
 Required MVP scopes:
 
@@ -44,6 +52,8 @@ cp .env.example .env
 ```
 
 Set `SLACK_APP_TOKEN`, `SLACK_CLIENT_ID`, and `SLACK_CLIENT_SECRET`. Then run `sig slack login` to install the app and store bot/user tokens locally. `SLACK_BOT_TOKEN` and `SLACK_USER_TOKEN` are still supported as optional fallbacks.
+
+If you are on `http://127.0.0.1:31337/slack/oauth/callback` without first running `sig slack login`, close that tab. The callback URL is only used after Slack redirects back to SignalDesk during login.
 
 4. Configure SignalDesk:
 

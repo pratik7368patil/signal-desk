@@ -48,6 +48,64 @@ SLACK_USER_TOKEN=xoxp-your-user-token
 
 If `SLACK_BOT_TOKEN` or `SLACK_USER_TOKEN` is set, the environment value takes precedence over the locally saved OAuth installation.
 
+## First-Time Slack App Setup
+
+You only need to create the Slack app once per workspace. SignalDesk does not need a hosted server; the app configuration lives in Slack and `signald` runs locally on your machine.
+
+1. Open Slack's app dashboard:
+
+```text
+https://api.slack.com/apps
+```
+
+2. Click `Create New App`, then choose `From an app manifest`.
+
+3. Pick the workspace where you want to use SignalDesk.
+
+4. Choose `YAML`, then paste the contents of `slack-app-manifest.yaml` from this project.
+
+5. Click through Slack's review screens and create the app.
+
+After the app is created, Slack shows the app settings dashboard. Get the three values for `.env` from these places:
+
+| `.env` value | Where to find it in Slack | What it looks like |
+| --- | --- | --- |
+| `SLACK_CLIENT_ID` | `Basic Information` -> `App Credentials` -> `Client ID` | `123456789.123456789` |
+| `SLACK_CLIENT_SECRET` | `Basic Information` -> `App Credentials` -> `Client Secret` | a long secret string |
+| `SLACK_APP_TOKEN` | `Basic Information` -> `App-Level Tokens` -> `Generate Token and Scopes` | starts with `xapp-` |
+
+When creating `SLACK_APP_TOKEN`, name it something like `signald-socket-mode`, add the `connections:write` scope, then click `Generate`. This app-level token is only for Socket Mode. It is not the bot token and it is not the user token.
+
+Create a local `.env` file where you will run SignalDesk:
+
+```bash
+cat > .env <<'EOF'
+SLACK_APP_TOKEN=xapp-your-app-level-token
+SLACK_CLIENT_ID=your-client-id
+SLACK_CLIENT_SECRET=your-client-secret
+SIGNALD_CONFIG=assistant.config.yaml
+SIGNALD_DB_PATH=.signald.sqlite
+SIGNALD_LOG_LEVEL=info
+EOF
+```
+
+Then run OAuth:
+
+```bash
+sig slack login
+```
+
+`sig slack login` opens Slack's install screen. Approve the app, then Slack redirects back to the local callback URL. SignalDesk uses that callback to save the bot/user tokens locally. You do not need to paste `SLACK_BOT_TOKEN` or `SLACK_USER_TOKEN` by hand for the normal setup.
+
+If you are already looking at `http://127.0.0.1:31337/slack/oauth/callback` in a browser and did not get there by clicking through Slack during `sig slack login`, close that tab and start again with `sig slack login`. The callback URL is not a setup page by itself; it only works while the local login server is running and Slack redirects to it with a temporary OAuth code.
+
+After login:
+
+```bash
+sig slack status
+sig doctor
+```
+
 ## Slack App Redirect URL
 
 The default local callback is:
