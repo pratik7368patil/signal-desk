@@ -16,7 +16,8 @@ export async function runInit(configPath: string, options: { dryRun?: boolean; m
   messages.push((await commandExists("anchor")) ? "Anchor detected" : "Anchor not found; install with `npm install -g @pratik7368patil/anchor`");
   messages.push((await commandExists("gh")) ? "GitHub CLI detected" : "GitHub CLI not found; install `gh` for private repo PR history");
   messages.push("Next: set SLACK_APP_TOKEN, SLACK_CLIENT_ID, SLACK_CLIENT_SECRET, then run `sig slack login`.");
-  messages.push("Next: add repositories with `sig repos add <path> --github owner/repo` and docs with `sig docs add <path>`.");
+  messages.push("Next: run `sig github setup ~/code` to pick GitHub repos, add them to config, and index them.");
+  messages.push("Next: add docs with `sig docs add <path>`.");
   return {
     configCreatedOrChanged: result.changed,
     messages

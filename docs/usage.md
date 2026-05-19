@@ -171,7 +171,29 @@ Authenticate GitHub:
 gh auth login
 ```
 
-Index from inside the repository:
+First-time repository setup:
+
+```bash
+sig github setup ~/code
+```
+
+For an organization:
+
+```bash
+sig github setup ~/code --owner your-org
+```
+
+The terminal picker lists repositories from `gh repo list`, marks local matches under `~/code`, and lets you select by number or range:
+
+```text
+Repos to add: 1,3-5
+```
+
+Type `a` to add a repo that is not shown. If the selected repo is not local yet, SignalDesk can clone it with `gh repo clone`, add it to `assistant.config.yaml`, and run Anchor indexing automatically. Use `--no-index` if you want to add repos without indexing, or `--yes` to clone missing selected repos into the default path without extra prompts.
+
+SignalDesk uses your existing local GitHub CLI authentication. During auto-indexing it can read `gh auth token` and pass that token only to the Anchor subprocess as `GH_TOKEN`; it does not store or print the token.
+
+Manual indexing from inside a repository still works:
 
 ```bash
 cd ~/code/payments-service
@@ -194,6 +216,7 @@ sig anchor status payments
 Repository commands:
 
 ```bash
+sig github setup ~/code
 sig repos discover ~/code
 sig repos add ~/code/payments-service --github your-org/payments-service --id payments
 sig repos map-channel payments C012PAYMENTS

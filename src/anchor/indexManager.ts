@@ -1,5 +1,6 @@
 import type { RepositoryConfig } from "../config/schema.js";
 import { allowlistedEnv, commandExists, runCommand } from "../utils/shell.js";
+import type { RunCommandResult } from "../utils/shell.js";
 
 export function isSecretPattern(pattern: string): boolean {
   return /(^|[/\\])\.env|pem$|\.key$|secret|token|credential|password/i.test(pattern);
@@ -30,10 +31,16 @@ export interface IndexRepositoryResult {
 
 export async function indexRepositories(
   repos: RepositoryConfig[],
-  options: { binary?: string; exists?: (binary: string) => Promise<boolean> } = {}
+  options: {
+    binary?: string;
+    exists?: (binary: string) => Promise<boolean>;
+    run?: (command: string, args: string[], options?: Parameters<typeof runCommand>[2]) => Promise<RunCommandResult>;
+    extraEnv?: NodeJS.ProcessEnv;
+  } = {}
 ): Promise<IndexRepositoryResult[]> {
   const fallbackBinary = options.binary ?? "anchor";
   const exists = options.exists ?? commandExists;
+  const run = options.run ?? runCommand;
 
   const results: IndexRepositoryResult[] = [];
   for (const repo of repos) {
@@ -54,9 +61,9 @@ export async function indexRepositories(
       });
       continue;
     }
-    const result = await runCommand(binary, buildAnchorIndexArgs(repo), {
+    const result = await run(binary, buildAnchorIndexArgs(repo), {
       timeoutMs: 10 * 60_000,
-      env: allowlistedEnv(repo.anchor.env_allowlist),
+      env: anchorEnv(repo.anchor.env_allowlist, options.extraEnv),
       cwd: repo.path
     });
     results.push({
@@ -66,4 +73,15 @@ export async function indexRepositories(
     });
   }
   return results;
+}
+
+function anchorEnv(allowlist: string[], extraEnv: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
+  const env = allowlistedEnv(allowlist);
+  for (const key of allowlist) {
+    const value = extraEnv[key];
+    if (value !== undefined) {
+      env[key] = value;
+    }
+  }
+  return env;
 }

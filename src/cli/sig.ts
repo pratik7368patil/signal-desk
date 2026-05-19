@@ -13,6 +13,7 @@ import { McpToolRegistry } from "../mcp/toolRegistry.js";
 import { AuditRepo } from "../storage/auditRepo.js";
 import { openDatabase } from "../storage/sqlite.js";
 import { addDocsSource, indexDocs } from "./docsOps.js";
+import { runGitHubSetup } from "./githubOps.js";
 import { printDoctor, runDoctor } from "./doctor.js";
 import { runInit } from "./initOps.js";
 import { addRepo, discoverRepos, mapRepoChannel, syncRepos } from "./repoOps.js";
@@ -36,7 +37,7 @@ import {
 } from "../slack/oauth.js";
 
 const program = new Command();
-program.name("sig").description("SignalDesk local Slack coworker assistant").version("0.1.0");
+program.name("sig").description("SignalDesk local Slack coworker assistant").version(packageVersion());
 
 program
   .command("init")
@@ -214,6 +215,34 @@ repos
     const repo = mapRepoChannel(options.config, repoId, channel);
     console.log(`Mapped ${repo.id} to ${repo.channels.join(", ")}`);
   });
+
+const github = program.command("github").description("First-time GitHub and repository setup");
+github
+  .command("setup")
+  .description("Select GitHub repositories with gh, add them to config, and index them")
+  .argument("[root]", "local repository root for discovery/clones")
+  .option("-c, --config <path>", "config file", process.env.SIGNALD_CONFIG ?? "assistant.config.yaml")
+  .option("--owner <owner>", "GitHub user or organization to list")
+  .option("--limit <n>", "maximum repositories to list", "50")
+  .option("--yes", "clone missing selected repositories into the default path without prompting")
+  .option("--no-index", "add repositories without running Anchor indexing")
+  .action(
+    async (
+      root: string | undefined,
+      options: { config: string; owner?: string; limit: string; yes?: boolean; index: boolean }
+    ) => {
+      const result = await runGitHubSetup(options.config, {
+        ...(root === undefined ? {} : { root }),
+        ...(options.owner === undefined ? {} : { owner: options.owner }),
+        limit: Number(options.limit),
+        ...(options.yes === undefined ? {} : { yes: options.yes }),
+        autoIndex: options.index
+      });
+      console.log(
+        `GitHub setup complete: configured=${result.configuredRepos.length} added=${result.addedRepos.length} existing=${result.skippedExisting.length}`
+      );
+    }
+  );
 
 const docs = program.command("docs").description("Local markdown/text docs context");
 docs
@@ -550,4 +579,14 @@ function serviceEnv(configPath: string): NodeJS.ProcessEnv {
     SIGNALD_DB_PATH: process.env.SIGNALD_DB_PATH,
     SIGNALD_LOG_LEVEL: process.env.SIGNALD_LOG_LEVEL
   };
+}
+
+function packageVersion(): string {
+  try {
+    const current = fileURLToPath(import.meta.url);
+    const packageJson = JSON.parse(readFileSync(resolve(dirname(current), "../../package.json"), "utf8")) as { version?: string };
+    return packageJson.version ?? "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
 }

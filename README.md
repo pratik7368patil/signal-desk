@@ -88,6 +88,7 @@ signald
 - `sig slack login`: install SignalDesk to Slack with OAuth and store the bot token locally
 - `sig slack status`: show local Slack installation status
 - `sig slack logout`: delete the local Slack installation
+- `sig github setup`: select GitHub repositories with `gh`, add them to config, and index them
 - `sig repos discover/add/list/index/sync/map-channel`: configure repositories and Anchor indexes
 - `sig docs add/list/index`: configure and index local docs into SQLite FTS
 - `sig tools add-mcp/list/test`: configure read-only MCP context tools
@@ -158,9 +159,13 @@ repositories:
 Helpful commands:
 
 ```bash
+sig github setup ~/code
+sig github setup ~/code --owner your-org
 sig repos index
 sig anchor status payments
 ```
+
+`sig github setup` uses your local GitHub CLI login. Run `gh auth login` first. The setup flow lists repositories in the terminal, lets you select by number, supports `a` to add/clone a repo that is not shown, updates `assistant.config.yaml`, and auto-runs Anchor indexing. If SignalDesk needs a token for indexing, it reads `gh auth token` and passes it only to the indexing subprocess as `GH_TOKEN`; it is not stored or printed.
 
 ## MCP Tools
 

@@ -108,7 +108,7 @@ async function inferGithubRepo(pathValue: string): Promise<string | undefined> {
   return ssh?.[1];
 }
 
-function sanitizeRepoId(value: string): string {
+export function sanitizeRepoId(value: string): string {
   return value
     .trim()
     .toLowerCase()
