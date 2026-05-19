@@ -6,7 +6,7 @@ display_information:
 features:
   bot_user:
     display_name: SignalDesk
-    always_online: false
+    always_online: true
   shortcuts:
     - name: Draft with SignalDesk
       type: message

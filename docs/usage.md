@@ -356,8 +356,11 @@ Background:
 ```bash
 sig start
 sig status
+sig service logs
 sig stop
 ```
+
+Slack's presence dot is not the source of truth for local Socket Mode health. Use `sig status` and `sig service logs`; mentioning SignalDesk only works while the local `signald` process is running.
 
 OS service helpers:
 

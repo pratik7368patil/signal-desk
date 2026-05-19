@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { spawn } from "node:child_process";
@@ -91,11 +91,19 @@ export function serviceLogPaths(): string[] {
 }
 
 export function spawnDetached(command: string, args: string[], env: NodeJS.ProcessEnv): number | undefined {
+  const logPaths = serviceLogPaths();
+  const stdoutPath = logPaths[0]!;
+  const stderrPath = logPaths[1]!;
+  mkdirSync(dirname(stdoutPath), { recursive: true });
+  const stdout = openSync(stdoutPath, "a");
+  const stderr = openSync(stderrPath, "a");
   const child = spawn(command, args, {
     detached: true,
-    stdio: ["ignore", "ignore", "ignore"],
+    stdio: ["ignore", stdout, stderr],
     env
   });
+  closeSync(stdout);
+  closeSync(stderr);
   writeFileSync(pidPath, String(child.pid));
   child.unref();
   return child.pid;
