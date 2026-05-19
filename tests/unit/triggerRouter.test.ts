@@ -33,11 +33,29 @@ describe("triggerRouter", () => {
     expect(decision).toMatchObject({ matched: false, reasons: ["bot_message"] });
   });
 
-  it("ignores self messages", () => {
+  it("routes app_mention triggers from the configured user", () => {
     const decision = routeTrigger(
       { type: "app_mention", channel: "C1", user: "UME", text: "<@BOT> hello", ts: "1" },
       testConfig()
     );
+
+    expect(decision).toMatchObject({ matched: true, triggerType: "app_mention" });
+  });
+
+  it("ignores self-authored personal mention watcher messages", () => {
+    const config = testConfig({
+      triggers: {
+        bot_mentions: { enabled: true },
+        personal_mentions: {
+          enabled: true,
+          allowed_channels: [],
+          excluded_channels: [],
+          ignore_bots: true,
+          ignore_self: true
+        }
+      }
+    });
+    const decision = routeTrigger({ type: "message", channel: "C1", user: "UME", text: "ask <@UME>", ts: "1" }, config);
 
     expect(decision).toMatchObject({ matched: false, reasons: ["self_message"] });
   });

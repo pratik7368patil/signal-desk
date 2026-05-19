@@ -29,10 +29,6 @@ export function routeTrigger(event: SlackMessageLike, config: AssistantConfig): 
     return { matched: false, reasons: ["bot_message"] };
   }
 
-  if (isSelfMessage(event, config)) {
-    return { matched: false, reasons: ["self_message"] };
-  }
-
   if (event.type === "app_mention") {
     if (!config.triggers.bot_mentions.enabled) {
       return { matched: false, reasons: ["bot_mentions_disabled"] };
