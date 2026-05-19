@@ -128,6 +128,64 @@ agents:
       timeout_seconds: 90
 ```
 
+### Using Codex or Claude Code as the draft agent
+
+The default `local-agent` example is a placeholder. If `sig doctor` says `local-llm not found`, configure an installed CLI agent instead.
+
+Codex and Claude Code are usually cloud-backed CLIs, not local-only model runtimes. To use them, explicitly allow network-backed agents:
+
+```yaml
+security:
+  require_approval_before_posting: true
+  allow_agent_file_writes: false
+  allow_network_for_agents: true
+  redact_slack_user_emails: true
+```
+
+Codex example:
+
+```yaml
+agents:
+  default: codex
+  available:
+    - id: codex
+      command:
+        - "codex"
+        - "exec"
+        - "--skip-git-repo-check"
+        - "--ephemeral"
+        - "--sandbox"
+        - "read-only"
+        - "--color"
+        - "never"
+        - "-"
+      local_only: false
+      timeout_seconds: 180
+```
+
+Claude Code example:
+
+```yaml
+agents:
+  default: claude
+  available:
+    - id: claude
+      command:
+        - "claude"
+        - "-p"
+        - "--output-format"
+        - "text"
+        - "--permission-mode"
+        - "dontAsk"
+        - "--tools"
+        - ""
+        - "--no-session-persistence"
+      local_only: false
+      timeout_seconds: 180
+```
+
+If `claude` is installed by the desktop app but not on `PATH`, either add it to `PATH` or use the absolute binary path in `command[0]`.
+
 Validate:
 
 ```bash

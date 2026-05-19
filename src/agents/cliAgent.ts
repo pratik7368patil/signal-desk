@@ -40,11 +40,38 @@ export class CliAgent {
 }
 
 export function parseAgentResult(stdout: string): AgentResult {
-  const parsed = JSON.parse(stdout) as unknown;
+  const candidates = agentJsonCandidates(stdout);
+  let lastError: unknown = new Error("no JSON object found");
+  for (const candidate of candidates) {
+    try {
+      return coerceAgentResult(JSON.parse(candidate) as unknown);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
+}
+
+function agentJsonCandidates(stdout: string): string[] {
+  const trimmed = stdout.trim();
+  const candidates = trimmed ? [trimmed] : [];
+  const lines = trimmed
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("{") && line.endsWith("}"))
+    .reverse();
+  candidates.push(...lines);
+  return [...new Set(candidates)];
+}
+
+function coerceAgentResult(parsed: unknown): AgentResult {
   if (typeof parsed !== "object" || parsed === null) {
     throw new Error("expected object");
   }
   const value = parsed as Record<string, unknown>;
+  if (typeof value.result === "string" && typeof value.draft !== "string") {
+    return coerceAgentResult(JSON.parse(value.result) as unknown);
+  }
   if (typeof value.draft !== "string") {
     throw new Error("draft must be a string");
   }

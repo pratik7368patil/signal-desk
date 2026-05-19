@@ -103,10 +103,14 @@ export async function runDoctor(configPath: string): Promise<DoctorCheck[]> {
   try {
     const agent = getAgent(config);
     const binary = agent.command[0] ?? "";
+    const binaryExists = Boolean(binary) && (await commandExists(binary));
+    const alternatives = binaryExists ? "" : await installedAgentHint();
     checks.push({
-      level: binary && (await commandExists(binary)) ? "pass" : "warn",
+      level: binaryExists ? "pass" : "warn",
       name: "agent",
-      message: binary && (await commandExists(binary)) ? `${agent.id}: ${basename(binary)}` : `${agent.id}: ${binary || "missing command"} not found`
+      message: binaryExists
+        ? `${agent.id}: ${basename(binary)}`
+        : `${agent.id}: ${binary || "missing command"} not found${alternatives}`
     });
   } catch (error) {
     checks.push({ level: "fail", name: "agent", message: String(error) });
@@ -126,4 +130,18 @@ export function printDoctor(checks: DoctorCheck[]): void {
     const label = check.level.toUpperCase().padEnd(4);
     console.log(`${label} ${check.name}: ${check.message}`);
   }
+}
+
+async function installedAgentHint(): Promise<string> {
+  const installed = [];
+  if (await commandExists("codex")) {
+    installed.push("codex");
+  }
+  if (await commandExists("claude")) {
+    installed.push("claude");
+  }
+  if (installed.length === 0) {
+    return "";
+  }
+  return `; found ${installed.join(", ")}. Configure one under agents.available.`;
 }
