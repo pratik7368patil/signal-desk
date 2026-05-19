@@ -46,6 +46,7 @@ describe("config validation", () => {
     expect(config.local_docs).toEqual([]);
     expect(config.tools.providers).toEqual([]);
     expect(config.context.max_evidence_items).toBe(24);
+    expect(config.slack.oauth.scopes).toContain("commands");
     expect(config.slack.oauth.user_scopes).toContain("chat:write");
   });
 

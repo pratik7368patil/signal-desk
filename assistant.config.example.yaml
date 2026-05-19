@@ -27,6 +27,7 @@ slack:
     installation_store: "~/.config/signald/slack-installation.json"
     scopes:
       - "app_mentions:read"
+      - "commands"
       - "chat:write"
       - "users:read"
       - "channels:history"

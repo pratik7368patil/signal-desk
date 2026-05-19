@@ -97,7 +97,7 @@ export const AssistantConfigSchema = z
           installation_store: nonEmptyString.default("~/.config/signald/slack-installation.json"),
           scopes: z
             .array(nonEmptyString)
-            .default(["app_mentions:read", "chat:write", "users:read", "channels:history"]),
+            .default(["app_mentions:read", "commands", "chat:write", "users:read", "channels:history"]),
           user_scopes: z.array(nonEmptyString).default(["channels:history", "groups:history", "im:history", "mpim:history", "search:read", "chat:write"])
         })
         .default({
@@ -108,7 +108,7 @@ export const AssistantConfigSchema = z
           redirect_port: 31337,
           redirect_path: "/slack/oauth/callback",
           installation_store: "~/.config/signald/slack-installation.json",
-          scopes: ["app_mentions:read", "chat:write", "users:read", "channels:history"],
+          scopes: ["app_mentions:read", "commands", "chat:write", "users:read", "channels:history"],
           user_scopes: ["channels:history", "groups:history", "im:history", "mpim:history", "search:read", "chat:write"]
         })
     }),

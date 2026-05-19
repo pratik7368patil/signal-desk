@@ -35,6 +35,7 @@ Then copy these values into `.env`:
 Required MVP scopes:
 
 - `app_mentions:read`
+- `commands`
 - `chat:write`
 - `users:read`
 - `channels:history`

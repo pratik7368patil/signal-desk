@@ -42,6 +42,7 @@ The MVP uses:
 Required bot scopes:
 
 - `app_mentions:read`
+- `commands`
 - `chat:write`
 - `users:read`
 - `channels:history`
