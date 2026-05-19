@@ -1,0 +1,154 @@
+config_version: 1
+
+profile:
+  slack_user_id: "U1234567890"
+  timezone: "Asia/Kolkata"
+  role: ""
+  teams: []
+  owned_systems: []
+  preferred_tone: "concise, warm, direct"
+  escalation_style: "be explicit about urgency and unknowns"
+  default_uncertainty_language: "I may be missing context, but based on what I can see"
+
+slack:
+  draft_surface: "dm"
+  post_mode: "manual_only"
+  max_drafts_per_hour: 20
+  oauth:
+    enabled: true
+    client_id_env: "SLACK_CLIENT_ID"
+    client_secret_env: "SLACK_CLIENT_SECRET"
+    redirect_host: "127.0.0.1"
+    redirect_port: 31337
+    redirect_path: "/slack/oauth/callback"
+    # Use redirect_uri when Slack requires a public HTTPS callback, e.g. an ngrok URL
+    # that forwards to redirect_host:redirect_port.
+    # redirect_uri: "https://your-ngrok-domain/slack/oauth/callback"
+    installation_store: "~/.config/signald/slack-installation.json"
+    scopes:
+      - "app_mentions:read"
+      - "chat:write"
+      - "users:read"
+      - "channels:history"
+    user_scopes:
+      - "channels:history"
+      - "groups:history"
+      - "im:history"
+      - "mpim:history"
+      - "search:read"
+      - "chat:write"
+
+triggers:
+  bot_mentions:
+    enabled: true
+  personal_mentions:
+    enabled: false
+    allowed_channels: []
+    excluded_channels: []
+    ignore_bots: true
+    ignore_self: true
+
+context:
+  thread_replies_limit: 50
+  channel_history_before_message: 20
+  max_slack_context_chars: 12000
+  store_slack_context_ttl_hours: 24
+  max_evidence_items: 24
+
+repositories:
+  - id: payments
+    path: "~/code/payments-service"
+    github_repo: "your-org/payments-service"
+    channels: ["C012PAYMENTS"]
+    anchor:
+      enabled: true
+      command:
+        - "anchor"
+        - "serve"
+      index_limit: 200
+      sync_on_index: false
+      env_allowlist:
+        - "HOME"
+        - "PATH"
+        - "LANG"
+        - "LC_ALL"
+        - "TZ"
+        - "TMPDIR"
+        - "GITHUB_TOKEN"
+        - "GH_TOKEN"
+    include:
+      - "src/**"
+      - "docs/**"
+      - "README.md"
+    exclude:
+      - ".env*"
+      - "**/*.pem"
+      - "**/*secret*"
+      - "node_modules/**"
+      - "build/**"
+      - "dist/**"
+
+local_docs: []
+# Add team/company docs with `sig docs add <path> --repo <repoId>`.
+# Example:
+# local_docs:
+#   - id: runbooks
+#     path: "~/company/runbooks"
+#     repo_id: payments
+#     include: ["**/*.md", "**/*.txt", "README*"]
+#     exclude: [".env*", "**/*.pem", "**/*secret*", "node_modules/**"]
+
+mcp:
+  enabled: true
+  servers: []
+# Generic read-only local MCP tools can be added here and called through
+# `sig tools add-mcp`.
+# Example:
+# mcp:
+#   servers:
+#     - id: docs
+#       enabled: true
+#       command: ["my-local-mcp", "serve"]
+#       cwd: "~/code/payments-service"
+#       env_allowlist: ["HOME", "PATH"]
+#       timeout_seconds: 30
+#       local_only: true
+#       read_only: true
+#       allowed_tools: ["docs_search"]
+
+tools:
+  providers: []
+
+agents:
+  default: local-agent
+  available:
+    - id: local-agent
+      command:
+        - "local-llm"
+        - "chat"
+        - "--json"
+      local_only: true
+      timeout_seconds: 90
+
+focus:
+  enabled: true
+  attention_budget:
+    max_interruptions_per_hour: 3
+    batch_low_priority_every_minutes: 60
+    quiet_hours:
+      enabled: false
+      start: "18:00"
+      end: "09:00"
+  priority_model:
+    direct_mention: high
+    owned_repo_mentioned: high
+    incident_channel: critical
+    waiting_on_user: high
+    fyi_only: low
+    bot_noise: ignore
+
+security:
+  require_approval_before_posting: true
+  allow_agent_file_writes: false
+  allow_network_for_agents: false
+  redact_slack_user_emails: true

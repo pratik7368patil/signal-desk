@@ -1,0 +1,65 @@
+{
+  "name": "signald",
+  "version": "1.0.0",
+  "description": "Local-first Slack coworker assistant daemon.",
+  "type": "module",
+  "main": "dist/index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pratik7368patil/signal-desk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/pratik7368patil/signal-desk/issues"
+  },
+  "homepage": "https://github.com/pratik7368patil/signal-desk#readme",
+  "bin": {
+    "sig": "./dist/cli/sig.js",
+    "signald": "./dist/cli/signald.js"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "packageManager": "npm@11.12.1",
+  "scripts": {
+    "dev": "tsx src/cli/sig.ts dev",
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "index:repos": "tsx src/cli/sig.ts index",
+    "pack:smoke": "npm pack --dry-run"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "assistant.config.example.yaml",
+    "slack-app-manifest.yaml",
+    ".env.example",
+    "docs"
+  ],
+  "keywords": [
+    "slack",
+    "local-first",
+    "assistant"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@slack/bolt": "^4.7.2",
+    "@slack/web-api": "^7.16.0",
+    "commander": "^14.0.3",
+    "dotenv": "^17.4.2",
+    "yaml": "^2.9.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.9.0",
+    "eslint": "^10.4.0",
+    "tsx": "^4.22.2",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.59.4",
+    "vitest": "^4.1.6"
+  }
+}

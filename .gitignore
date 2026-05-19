@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+assistant.config.yaml
+*.db
+*.sqlite
+*.sqlite-*
+*.tgz
+.signald/
+.signald.pid
+.signald.log
