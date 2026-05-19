@@ -68,12 +68,21 @@ export async function runDoctor(configPath: string): Promise<DoctorCheck[]> {
 
   const anchorClient = new AnchorClient();
   for (const repo of config.repositories) {
+    const repoPathExists = existsSync(repo.path);
     checks.push({
-      level: existsSync(repo.path) ? "pass" : "warn",
+      level: repoPathExists ? "pass" : "warn",
       name: `repo:${repo.id}`,
-      message: existsSync(repo.path) ? repo.path : `Missing path ${repo.path}`
+      message: repoPathExists ? repo.path : `Missing path ${repo.path}`
     });
     if (repo.anchor.enabled) {
+      if (!repoPathExists) {
+        checks.push({
+          level: "warn",
+          name: `anchor:${repo.id}`,
+          message: "Skipped Anchor status because the repository path is missing"
+        });
+        continue;
+      }
       const status = await anchorClient.status(repo);
       checks.push({
         level: status.ok ? "pass" : "warn",

@@ -44,6 +44,23 @@ describe("anchor integration", () => {
     });
   });
 
+  it("reports Anchor status failures without throwing", async () => {
+    const mcpClient = {
+      callTool: async () => {
+        throw new Error("spawn anchor ENOENT");
+      }
+    } as unknown as McpToolClient;
+    const client = new AnchorClient({ exists: async () => true, mcpClient });
+
+    const result = await client.status(testConfig().repositories[0]!);
+
+    expect(result).toMatchObject({
+      available: true,
+      ok: false,
+      message: expect.stringContaining("spawn anchor ENOENT")
+    });
+  });
+
   it("excludes secret patterns from anchor index args", () => {
     const repo = {
       ...testConfig().repositories[0]!,

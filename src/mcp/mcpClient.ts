@@ -47,31 +47,41 @@ export class McpToolClient {
       };
     }
 
-    return withMcpClient(serverConfig, async (client) => {
-      const result = (await client.callTool(
-        {
-          name: toolName,
-          arguments: args
-        },
-        CallToolResultSchema,
-        {
-          timeout: serverConfig.timeout_seconds * 1_000,
-          maxTotalTimeout: serverConfig.timeout_seconds * 1_000
-        }
-      )) as CallToolResult;
-      const structuredContent =
-        result.structuredContent && typeof result.structuredContent === "object" && !Array.isArray(result.structuredContent)
-          ? (result.structuredContent as Record<string, unknown>)
-          : undefined;
+    try {
+      return await withMcpClient(serverConfig, async (client) => {
+        const result = (await client.callTool(
+          {
+            name: toolName,
+            arguments: args
+          },
+          CallToolResultSchema,
+          {
+            timeout: serverConfig.timeout_seconds * 1_000,
+            maxTotalTimeout: serverConfig.timeout_seconds * 1_000
+          }
+        )) as CallToolResult;
+        const structuredContent =
+          result.structuredContent && typeof result.structuredContent === "object" && !Array.isArray(result.structuredContent)
+            ? (result.structuredContent as Record<string, unknown>)
+            : undefined;
+        return {
+          serverId: serverConfig.id,
+          toolName,
+          ok: !result.isError,
+          text: extractText(result),
+          ...(structuredContent === undefined ? {} : { structuredContent }),
+          isError: Boolean(result.isError)
+        };
+      });
+    } catch (error) {
       return {
         serverId: serverConfig.id,
         toolName,
-        ok: !result.isError,
-        text: extractText(result),
-        ...(structuredContent === undefined ? {} : { structuredContent }),
-        isError: Boolean(result.isError)
+        ok: false,
+        text: `MCP server ${serverConfig.id} failed: ${error instanceof Error ? error.message : String(error)}`,
+        isError: true
       };
-    });
+    }
   }
 }
 

@@ -24,12 +24,20 @@ export class AnchorClient {
     if (!(await this.binaryAvailable(repo))) {
       return { available: false, ok: false, message: "anchor binary not found" };
     }
-    const result = await this.mcpClient.callTool(anchorServerConfig(repo, this.binary), "anchor_index_status", {});
-    return {
-      available: true,
-      ok: result.ok,
-      message: result.text
-    };
+    try {
+      const result = await this.mcpClient.callTool(anchorServerConfig(repo, this.binary), "anchor_index_status", {});
+      return {
+        available: true,
+        ok: result.ok,
+        message: result.text
+      };
+    } catch (error) {
+      return {
+        available: true,
+        ok: false,
+        message: `anchor status failed: ${error instanceof Error ? error.message : String(error)}`
+      };
+    }
   }
 
   async query(repos: RepositoryConfig[], query: string, limit = 8): Promise<AnchorQueryResult> {
