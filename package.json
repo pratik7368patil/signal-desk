@@ -13,13 +13,16 @@
   },
   "homepage": "https://github.com/pratik7368patil/signal-desk#readme",
   "bin": {
-    "sig": "./dist/cli/sig.js",
-    "signald": "./dist/cli/signald.js"
+    "sig": "dist/cli/sig.js",
+    "signald": "dist/cli/signald.js"
   },
   "engines": {
     "node": ">=24.0.0"
   },
   "packageManager": "npm@11.12.1",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "dev": "tsx src/cli/sig.ts dev",
     "build": "tsc -p tsconfig.build.json",
