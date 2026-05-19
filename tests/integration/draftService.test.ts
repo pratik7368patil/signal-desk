@@ -26,7 +26,7 @@ function validCliAgent() {
 describe("DraftService", () => {
   it("stores a draft and sends it privately for an app_mention", async () => {
     const db = openDatabase(":memory:");
-    const { client, postCalls } = fakeSlackClient();
+    const { client, postCalls, reactionCalls } = fakeSlackClient();
     const service = new DraftService({
       config: testConfig(),
       client,
@@ -45,6 +45,11 @@ describe("DraftService", () => {
     expect(service.draftsRepo.getDraft(result.draft!.id)).toBeDefined();
     expect(postCalls).toHaveLength(1);
     expect(postCalls[0]?.channel).toBe("DME");
+    expect(reactionCalls).toContainEqual({
+      channel: "C123",
+      timestamp: "123.000",
+      name: "eyes"
+    });
   });
 
   it("does not automatically post publicly during event handling", async () => {
@@ -66,6 +71,32 @@ describe("DraftService", () => {
     expect(postCalls).toHaveLength(1);
     expect(postCalls[0]?.channel).toBe("DME");
     expect(postCalls.some((call) => call.channel === "CPUBLIC")).toBe(false);
+  });
+
+  it("still creates a draft when adding the trigger reaction fails", async () => {
+    const db = openDatabase(":memory:");
+    const { client, postCalls } = fakeSlackClient();
+    client.reactions = {
+      add: async () => {
+        throw Object.assign(new Error("missing_scope"), { data: { error: "missing_scope" } });
+      }
+    };
+    const service = new DraftService({
+      config: testConfig(),
+      client,
+      db,
+      anchorClient: new AnchorClient({ exists: async () => false }),
+      cliAgent: validCliAgent()
+    });
+
+    const result = await service.handleEvent({
+      event_id: "EvReactionFailure",
+      event: { type: "app_mention", channel: "CPUBLIC", user: "UASK", text: "<@BOT> can you reply?", ts: "124.500" }
+    });
+
+    expect(result.created).toBe(true);
+    expect(postCalls).toHaveLength(1);
+    expect(service.auditRepo.list().some((row) => row.action === "trigger_reaction_failed")).toBe(true);
   });
 
   it("posts to the original thread only after explicit Post click", async () => {

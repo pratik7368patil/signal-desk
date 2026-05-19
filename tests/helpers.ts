@@ -110,6 +110,7 @@ export function fakeSlackClient() {
   const postCalls: Record<string, unknown>[] = [];
   const updateCalls: Record<string, unknown>[] = [];
   const viewOpenCalls: Record<string, unknown>[] = [];
+  const reactionCalls: Record<string, unknown>[] = [];
   const client: SlackWebClientLike = {
     chat: {
       postMessage: async (args) => {
@@ -147,10 +148,16 @@ export function fakeSlackClient() {
         viewOpenCalls.push(args);
         return { ok: true };
       }
+    },
+    reactions: {
+      add: async (args) => {
+        reactionCalls.push(args);
+        return { ok: true };
+      }
     }
   };
 
-  return { client, postCalls, updateCalls, viewOpenCalls };
+  return { client, postCalls, updateCalls, viewOpenCalls, reactionCalls };
 }
 
 function mergeConfig(config: AssistantConfig, overrides: Partial<AssistantConfig>): AssistantConfig {

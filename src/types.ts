@@ -157,6 +157,9 @@ export interface SlackWebClientLike {
   views?: {
     open(args: Record<string, unknown>): Promise<Record<string, unknown>>;
   };
+  reactions?: {
+    add(args: Record<string, unknown>): Promise<Record<string, unknown>>;
+  };
 }
 
 export interface RuntimeServices {

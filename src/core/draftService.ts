@@ -88,6 +88,8 @@ export class DraftService {
       return { created: false, reason: "draft_budget_exceeded" };
     }
 
+    await this.addTriggerReaction(event, identity);
+
     const slackContext = await this.contextCollector.collect(event);
     new SlackCacheRepo(this.deps.db).upsertContext(slackContext, this.deps.config.context.store_slack_context_ttl_hours);
     const repoSelection = selectRepositories(this.deps.config, slackContext);
@@ -268,6 +270,30 @@ export class DraftService {
     return this.draftsRepo.countDraftsSince(oneHourAgo) >= this.deps.config.slack.max_drafts_per_hour;
   }
 
+  private async addTriggerReaction(event: SlackMessageLike, identity: string): Promise<void> {
+    const reactionName = "eyes";
+    if (!this.deps.client.reactions?.add) {
+      this.auditRepo.record("trigger_reaction_skipped", { identity, reason: "reactions_api_unavailable" });
+      return;
+    }
+    try {
+      await this.deps.client.reactions.add({
+        channel: event.channel,
+        timestamp: event.ts,
+        name: reactionName
+      });
+      this.auditRepo.record("trigger_reaction_added", { identity, name: reactionName });
+    } catch (error) {
+      const message = slackApiErrorMessage(error);
+      if (message === "already_reacted") {
+        this.auditRepo.record("trigger_reaction_skipped", { identity, reason: message });
+        return;
+      }
+      this.auditRepo.record("trigger_reaction_failed", { identity, reason: message });
+      logger.warn("Failed to add trigger reaction", { identity, reason: message });
+    }
+  }
+
   private requireDraft(draftId: string): StoredDraft {
     const draft = this.draftsRepo.getDraft(draftId);
     if (!draft) {
@@ -297,6 +323,19 @@ export class DraftService {
       priority
     });
   }
+}
+
+function slackApiErrorMessage(error: unknown): string {
+  if (typeof error === "object" && error !== null && "data" in error) {
+    const data = (error as { data?: { error?: unknown } }).data;
+    if (typeof data?.error === "string") {
+      return data.error;
+    }
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
 }
 
 function buildAnchorQuery(event: SlackMessageLike, originalText: string): string {

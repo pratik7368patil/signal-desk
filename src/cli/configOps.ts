@@ -40,6 +40,7 @@ slack:
       - "chat:write"
       - "users:read"
       - "channels:history"
+      - "reactions:write"
     user_scopes:
       - "channels:history"
       - "groups:history"
@@ -159,9 +160,10 @@ export function migrateConfigText(text: string): ConfigMutationResult {
   ensure(["profile", "preferred_tone"], "concise, warm, direct");
   ensure(["profile", "escalation_style"], "be explicit about urgency and unknowns");
   ensure(["profile", "default_uncertainty_language"], "I may be missing context, but based on what I can see");
-  ensure(["slack", "oauth", "scopes"], ["app_mentions:read", "commands", "chat:write", "users:read", "channels:history"]);
+  ensure(["slack", "oauth", "scopes"], ["app_mentions:read", "commands", "chat:write", "users:read", "channels:history", "reactions:write"]);
   ensure(["slack", "oauth", "user_scopes"], ["channels:history", "groups:history", "im:history", "mpim:history", "search:read", "chat:write"]);
   addUniqueListItem(["slack", "oauth", "scopes"], "commands");
+  addUniqueListItem(["slack", "oauth", "scopes"], "reactions:write");
   ensure(["context", "max_evidence_items"], 24);
   ensure(["local_docs"], []);
   ensure(["tools"], { providers: [] });

@@ -39,6 +39,7 @@ Required MVP scopes:
 - `chat:write`
 - `users:read`
 - `channels:history`
+- `reactions:write`
 
 Optional personal mention mode also needs the matching history scopes:
 
