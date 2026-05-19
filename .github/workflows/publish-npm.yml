@@ -49,5 +49,8 @@ jobs:
         run: |
           if [ -n "${NODE_AUTH_TOKEN:-}" ]; then
             printf "//registry.npmjs.org/:_authToken=%s\n" "$NODE_AUTH_TOKEN" > ~/.npmrc
+            npm whoami
+            npm publish --access public
+          else
+            npm publish --access public --provenance
           fi
-          npm publish --access public --provenance
