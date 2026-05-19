@@ -48,7 +48,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           if [ -n "${NODE_AUTH_TOKEN:-}" ]; then
-            printf "//registry.npmjs.org/:_authToken=%s\n" "$NODE_AUTH_TOKEN" > ~/.npmrc
+            printf "//registry.npmjs.org/:_authToken=%s\n" "$NODE_AUTH_TOKEN" > "${NPM_CONFIG_USERCONFIG}"
             npm whoami
             npm publish --access public
           else
