@@ -1,6 +1,6 @@
 # SignalDesk Release Checklist
 
-Use this before publishing the `signald` npm package.
+Use this before publishing the SignalDesk npm package.
 
 ## Preflight
 
@@ -22,7 +22,7 @@ Publishing runs when a GitHub release is published or when the workflow is dispa
 Before the first automated publish, configure one of:
 
 - npm Trusted Publisher for `pratik7368patil/signal-desk`, workflow `publish-npm.yml`, environment `npm`.
-- GitHub environment/repository secret `NPM_TOKEN` with publish access to the `signald` package.
+- GitHub environment/repository secret `NPM_TOKEN` with publish access to the `@pratik7368patil/signald` package.
 
 ## NPM Smoke Test
 
@@ -51,7 +51,7 @@ npx sig config validate /path/to/signal-desk/assistant.config.example.yaml
 
 - Tokens are not printed in CLI output.
 - Credential fallback file is `0600`.
-- `npm install -g signald` has no postinstall side effects.
+- `npm install -g @pratik7368patil/signald` has no postinstall side effects.
 - Agents and MCP tools receive allowlisted/minimal env only.
 - Prompt injection text from Slack/docs/repos is evidence, not instructions.
 - Public posting only happens through the explicit Slack action path.

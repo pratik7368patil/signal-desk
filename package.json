@@ -1,5 +1,5 @@
 {
-  "name": "signald",
+  "name": "@pratik7368patil/signald",
   "version": "1.0.0",
   "description": "Local-first Slack coworker assistant daemon.",
   "type": "module",

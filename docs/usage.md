@@ -13,10 +13,12 @@ This guide gets SignalDesk running locally, connects it to Slack, indexes Anchor
 For npm users:
 
 ```bash
-npm install -g signald
+npm install -g @pratik7368patil/signald
 sig init
 sig doctor
 ```
+
+The npm package is scoped as `@pratik7368patil/signald`; the installed command names remain `sig` and `signald`.
 
 For local development from this repo:
 

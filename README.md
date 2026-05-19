@@ -7,10 +7,12 @@ SignalDesk never posts a public Slack reply automatically. The only public post 
 For npm users:
 
 ```bash
-npm install -g signald
+npm install -g @pratik7368patil/signald
 sig init
 sig doctor
 ```
+
+The npm package is scoped as `@pratik7368patil/signald`; the installed command names remain `sig` and `signald`.
 
 ## Setup
 
