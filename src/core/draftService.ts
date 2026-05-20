@@ -156,7 +156,14 @@ export class DraftService {
       draft.id
     );
 
-    await this.sendDraftDm(draft);
+    try {
+      await this.sendDraftDm(draft);
+    } catch (error) {
+      const reason = slackApiErrorMessage(error);
+      this.draftsRepo.updateStatus(draft.id, "failed");
+      this.auditRepo.record("draft_dm_failed", { reason }, draft.id);
+      logger.error("Failed to send draft DM", { draftId: draft.id, reason });
+    }
     return { created: true, draft: this.draftsRepo.getDraft(draft.id) ?? draft };
   }
 
@@ -255,9 +262,21 @@ export class DraftService {
     if (!this.deps.client.conversations.open) {
       return this.deps.config.profile.slack_user_id;
     }
-    const result = await this.deps.client.conversations.open({
-      users: this.deps.config.profile.slack_user_id
-    });
+    let result: Record<string, unknown>;
+    try {
+      result = await this.deps.client.conversations.open({
+        users: this.deps.config.profile.slack_user_id
+      });
+    } catch (error) {
+      if (slackApiErrorMessage(error) === "missing_scope") {
+        this.auditRepo.record("draft_dm_open_fallback", {
+          reason: "missing_scope",
+          fallback: "chat.postMessage user id"
+        });
+        return this.deps.config.profile.slack_user_id;
+      }
+      throw error;
+    }
     const channel = result.channel;
     if (typeof channel === "object" && channel !== null && "id" in channel && typeof channel.id === "string") {
       return channel.id;

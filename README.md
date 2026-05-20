@@ -40,6 +40,7 @@ Required MVP scopes:
 - `users:read`
 - `channels:history`
 - `reactions:write`
+- `im:write`
 
 Optional personal mention mode also needs the matching history scopes:
 

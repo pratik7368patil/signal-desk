@@ -47,6 +47,7 @@ Required bot scopes:
 - `users:read`
 - `channels:history`
 - `reactions:write`
+- `im:write`
 
 User-token coworker mode asks for user scopes so SignalDesk can read context you can already see and post as you only after approval:
 
@@ -65,7 +66,7 @@ Optional personal mention mode also needs message event subscriptions and the ma
 
 After installing the Slack app, create an app-level token with Socket Mode enabled.
 
-SignalDesk uses `reactions:write` to add an `:eyes:` reaction to accepted mention messages. That reaction is only an acknowledgement; public replies still require clicking `Post`.
+SignalDesk uses `reactions:write` to add an `:eyes:` reaction to accepted mention messages. It uses `im:write` to open a private DM for draft delivery. The reaction and DM are only acknowledgements/drafts; public replies still require clicking `Post`.
 
 First-time map of the Slack values you need:
 

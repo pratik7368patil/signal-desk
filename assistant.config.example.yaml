@@ -32,6 +32,7 @@ slack:
       - "users:read"
       - "channels:history"
       - "reactions:write"
+      - "im:write"
     user_scopes:
       - "channels:history"
       - "groups:history"

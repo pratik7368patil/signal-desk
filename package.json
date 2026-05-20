@@ -1,6 +1,6 @@
 {
   "name": "@pratik7368patil/signald",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "description": "Local-first Slack coworker assistant daemon.",
   "type": "module",
   "main": "dist/index.js",

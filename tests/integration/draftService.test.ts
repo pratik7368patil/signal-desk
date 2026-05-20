@@ -73,6 +73,56 @@ describe("DraftService", () => {
     expect(postCalls.some((call) => call.channel === "CPUBLIC")).toBe(false);
   });
 
+  it("falls back to posting a draft DM by user id when opening the DM is missing scope", async () => {
+    const db = openDatabase(":memory:");
+    const { client, postCalls } = fakeSlackClient();
+    client.conversations.open = async () => {
+      throw Object.assign(new Error("missing_scope"), { data: { error: "missing_scope" } });
+    };
+    const service = new DraftService({
+      config: testConfig(),
+      client,
+      db,
+      anchorClient: new AnchorClient({ exists: async () => false }),
+      cliAgent: validCliAgent()
+    });
+
+    const result = await service.handleEvent({
+      event_id: "EvDmFallback",
+      event: { type: "app_mention", channel: "CPUBLIC", user: "UASK", text: "<@BOT> can you reply?", ts: "124.250" }
+    });
+
+    expect(result.created).toBe(true);
+    expect(result.draft?.status).toBe("pending");
+    expect(postCalls).toHaveLength(1);
+    expect(postCalls[0]?.channel).toBe("UME");
+    expect(service.auditRepo.list().some((row) => row.action === "draft_dm_open_fallback")).toBe(true);
+  });
+
+  it("marks the draft failed when private DM delivery fails", async () => {
+    const db = openDatabase(":memory:");
+    const { client } = fakeSlackClient();
+    client.chat.postMessage = async () => {
+      throw Object.assign(new Error("missing_scope"), { data: { error: "missing_scope" } });
+    };
+    const service = new DraftService({
+      config: testConfig(),
+      client,
+      db,
+      anchorClient: new AnchorClient({ exists: async () => false }),
+      cliAgent: validCliAgent()
+    });
+
+    const result = await service.handleEvent({
+      event_id: "EvDmFailure",
+      event: { type: "app_mention", channel: "CPUBLIC", user: "UASK", text: "<@BOT> can you reply?", ts: "124.300" }
+    });
+
+    expect(result.created).toBe(true);
+    expect(service.draftsRepo.getDraft(result.draft!.id)?.status).toBe("failed");
+    expect(service.auditRepo.list().some((row) => row.action === "draft_dm_failed")).toBe(true);
+  });
+
   it("still creates a draft when adding the trigger reaction fails", async () => {
     const db = openDatabase(":memory:");
     const { client, postCalls } = fakeSlackClient();
