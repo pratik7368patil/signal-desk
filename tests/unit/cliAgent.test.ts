@@ -68,4 +68,18 @@ tokens used
     expect(result.draft).toBe("I can take this.");
     expect(result.sources).toEqual(["thread"]);
   });
+
+  it("accepts confidence as a numeric string from CLI agents", () => {
+    const result = parseAgentResult(
+      JSON.stringify({
+        draft: "I'll check this and follow up.",
+        confidence: "0.62",
+        assumptions: [],
+        sources: ["thread"],
+        needs_human_review: true
+      })
+    );
+
+    expect(result.confidence).toBe(0.62);
+  });
 });

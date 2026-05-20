@@ -75,7 +75,13 @@ function coerceAgentResult(parsed: unknown): AgentResult {
   if (typeof value.draft !== "string") {
     throw new Error("draft must be a string");
   }
-  if (typeof value.confidence !== "number" || value.confidence < 0 || value.confidence > 1) {
+  const confidence =
+    typeof value.confidence === "number"
+      ? value.confidence
+      : typeof value.confidence === "string"
+        ? Number(value.confidence)
+        : Number.NaN;
+  if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1) {
     throw new Error("confidence must be 0.0-1.0");
   }
   if (!Array.isArray(value.assumptions) || !value.assumptions.every((item) => typeof item === "string")) {
@@ -89,7 +95,7 @@ function coerceAgentResult(parsed: unknown): AgentResult {
   }
   return {
     draft: value.draft,
-    confidence: value.confidence,
+    confidence,
     assumptions: value.assumptions,
     sources: value.sources,
     needs_human_review: value.needs_human_review
