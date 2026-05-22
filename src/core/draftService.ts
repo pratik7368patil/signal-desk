@@ -4,8 +4,10 @@ import { CliAgent } from "../agents/cliAgent.js";
 import { getAgent } from "../agents/agentRegistry.js";
 import { buildAgentPrompt, hashPrompt } from "./promptBuilder.js";
 import { mentionsOwnedRepo, selectRepositories } from "./repoSelector.js";
-import { eventIdentity, routeTrigger } from "./triggerRouter.js";
+import { eventIdentity, isBotMessage, isSelfMessage, routeTrigger } from "./triggerRouter.js";
 import { scorePriority } from "./priorityScorer.js";
+import { extractStyleHint } from "./styleHints.js";
+import { extractFirstSlackLink, parseSlackThreadLink, shouldNotifyForWatchedThread } from "./watchThreads.js";
 import { ContextEngine } from "../context/contextEngine.js";
 import { AnchorEvidenceProvider, LocalDocsEvidenceProvider, SlackCacheEvidenceProvider, SlackEvidenceProvider } from "../context/providers.js";
 import type { ContextBundle } from "../context/types.js";
@@ -21,10 +23,14 @@ import type {
   StoredDraft
 } from "../types.js";
 import { AuditRepo } from "../storage/auditRepo.js";
+import { AttentionRepo } from "../storage/attentionRepo.js";
 import { DraftsRepo } from "../storage/draftsRepo.js";
 import { SlackCacheRepo } from "../storage/slackCacheRepo.js";
 import { recordEventIfNew, type SignalDeskDb } from "../storage/sqlite.js";
+import { StyleHintsRepo } from "../storage/styleHintsRepo.js";
+import { WatchRepo } from "../storage/watchRepo.js";
 import { logger } from "../utils/logger.js";
+import type { AttentionCategory, AttentionItem, TriggerDecision, WatchedThread } from "../types.js";
 
 export interface DraftServiceDeps {
   config: AssistantConfig;
@@ -41,6 +47,9 @@ export interface DraftServiceDeps {
 export class DraftService {
   readonly draftsRepo: DraftsRepo;
   readonly auditRepo: AuditRepo;
+  readonly attentionRepo: AttentionRepo;
+  readonly watchRepo: WatchRepo;
+  readonly styleHintsRepo: StyleHintsRepo;
   private readonly contextCollector: SlackContextCollector;
   private readonly anchorClient: AnchorClient;
   private readonly cliAgent: CliAgent;
@@ -48,6 +57,9 @@ export class DraftService {
   constructor(private readonly deps: DraftServiceDeps) {
     this.draftsRepo = deps.draftsRepo ?? new DraftsRepo(deps.db);
     this.auditRepo = deps.auditRepo ?? new AuditRepo(deps.db);
+    this.attentionRepo = new AttentionRepo(deps.db);
+    this.watchRepo = new WatchRepo(deps.db);
+    this.styleHintsRepo = new StyleHintsRepo(deps.db);
     this.contextCollector = deps.contextCollector ?? new SlackContextCollector(deps.config, deps.userClient ?? deps.client);
     this.anchorClient = deps.anchorClient ?? new AnchorClient();
     this.cliAgent = deps.cliAgent ?? new CliAgent();
@@ -55,13 +67,19 @@ export class DraftService {
 
   async handleEvent(envelope: SlackEventEnvelope): Promise<DraftCreationResult> {
     const { event } = envelope;
-    const trigger = routeTrigger(event, this.deps.config);
+    const identity = eventIdentity(event, envelope.event_id);
+
+    if (this.isWatchDmCommand(event)) {
+      return this.handleWatchDmCommand(event, identity);
+    }
+
+    const watchedTrigger = this.watchedThreadTrigger(event);
+    const trigger = watchedTrigger?.trigger ?? routeTrigger(event, this.deps.config);
     if (!trigger.matched) {
       this.auditRepo.record("event_ignored", { reasons: trigger.reasons, event: compactEvent(event) });
       return { created: false, reason: trigger.reasons.join(",") };
     }
 
-    const identity = eventIdentity(event, envelope.event_id);
     const isNewEvent = recordEventIfNew(this.deps.db, {
       eventIdentity: identity,
       ...(envelope.event_id === undefined ? {} : { eventId: envelope.event_id }),
@@ -81,6 +99,20 @@ export class DraftService {
     if (initialPriority.priority === "ignore") {
       this.auditRepo.record("event_priority_ignored", { identity, reasons: initialPriority.reasons });
       return { created: false, reason: "priority_ignore" };
+    }
+
+    const attentionItem = this.createAttentionItem({
+      identity,
+      event,
+      trigger,
+      priority: initialPriority,
+      ...(watchedTrigger?.watchedThread === undefined ? {} : { watchedThread: watchedTrigger.watchedThread }),
+      ...(watchedTrigger?.reason === undefined ? {} : { watchReason: watchedTrigger.reason })
+    });
+
+    if (this.deps.config.inbox.enabled && this.deps.config.inbox.batch_low_priority && initialPriority.priority === "low") {
+      this.auditRepo.record("low_priority_batched", { identity, attentionItemId: attentionItem?.id }, attentionItem?.draftId);
+      return { created: false, reason: "low_priority_batched" };
     }
 
     if (this.overDraftBudget()) {
@@ -105,6 +137,10 @@ export class DraftService {
     }
 
     const contextBundle = await this.buildContextBundle(event, slackContext, repoSelection.repos, priority);
+    const degraded = contextBundle.assumptions.filter(Boolean);
+    if (degraded.length > 0) {
+      this.auditRepo.record("context_provider_degraded", { identity, assumptions: degraded.slice(0, 12) });
+    }
     const assumptions = contextBundle.assumptions;
 
     const prompt = buildAgentPrompt({
@@ -119,7 +155,8 @@ export class DraftService {
         owned_systems: this.deps.config.profile.owned_systems,
         preferred_tone: this.deps.config.profile.preferred_tone,
         escalation_style: this.deps.config.profile.escalation_style,
-        default_uncertainty_language: this.deps.config.profile.default_uncertainty_language
+        default_uncertainty_language: this.deps.config.profile.default_uncertainty_language,
+        writing_style: this.deps.config.profile.writing_style
       },
       assumptions
     });
@@ -156,11 +193,16 @@ export class DraftService {
       draft.id
     );
 
+    if (attentionItem) {
+      this.attentionRepo.attachDraft(attentionItem.id, draft.id);
+    }
+
     try {
       await this.sendDraftDm(draft);
     } catch (error) {
       const reason = slackApiErrorMessage(error);
       this.draftsRepo.updateStatus(draft.id, "failed");
+      this.attentionRepo.updateStateByDraftId(draft.id, "failed");
       this.auditRepo.record("draft_dm_failed", { reason }, draft.id);
       logger.error("Failed to send draft DM", { draftId: draft.id, reason });
     }
@@ -183,6 +225,7 @@ export class DraftService {
       text: draft.draft
     });
     this.draftsRepo.updateStatus(draft.id, "posted");
+    this.attentionRepo.updateStateByDraftId(draft.id, "posted");
     this.auditRepo.record("draft_posted", { channel: draft.channel, threadTs: draft.threadTs, postedAs }, draft.id);
     return this.requireDraft(draft.id);
   }
@@ -190,20 +233,32 @@ export class DraftService {
   async dismissDraft(draftId: string): Promise<StoredDraft> {
     const draft = this.requireDraft(draftId);
     this.draftsRepo.updateStatus(draft.id, "dismissed");
+    this.attentionRepo.updateStateByDraftId(draft.id, "dismissed");
     this.auditRepo.record("draft_dismissed", {}, draft.id);
     return this.requireDraft(draft.id);
   }
 
   async editDraft(draftId: string, text: string): Promise<StoredDraft> {
     const draft = this.requireDraft(draftId);
+    const styleHint = extractStyleHint({ before: draft.draft, after: text });
     this.draftsRepo.updateDraftContent(draft.id, {
       draft: text,
       status: "pending"
     });
     const updated = this.requireDraft(draft.id);
     this.auditRepo.record("draft_edited", {}, draft.id);
+    if (styleHint) {
+      this.styleHintsRepo.record({ draftId: draft.id, hint: styleHint, source: "edited_draft" });
+      this.auditRepo.record("style_hint_recorded", { hint: styleHint }, draft.id);
+    }
     await this.updateDraftDm(updated);
     return updated;
+  }
+
+  async watchThread(input: { channel: string; threadTs: string; permalink?: string; reason: string; lastSeenTs?: string }): Promise<WatchedThread> {
+    const watched = this.watchRepo.watch(input);
+    this.auditRepo.record("thread_watched", { channel: watched.channel, threadTs: watched.threadTs, reason: watched.reason });
+    return watched;
   }
 
   async regenerateDraft(draftId: string): Promise<StoredDraft> {
@@ -342,6 +397,144 @@ export class DraftService {
       priority
     });
   }
+
+  private createAttentionItem(input: {
+    identity: string;
+    event: SlackMessageLike;
+    trigger: TriggerDecision;
+    priority: Exclude<ReturnType<typeof scorePriority>, { priority: "ignore" }>;
+    watchedThread?: WatchedThread;
+    watchReason?: string;
+  }): AttentionItem | undefined {
+    if (!this.deps.config.inbox.enabled || input.priority.priority === "ignore") {
+      return undefined;
+    }
+    const category = attentionCategory(input.trigger, input.priority.reasons);
+    return this.attentionRepo.upsertFromEvent({
+      eventIdentity: input.identity,
+      category,
+      priority: input.priority.priority,
+      state: input.watchedThread ? "watching" : "new",
+      channel: input.event.channel,
+      threadTs: input.event.thread_ts ?? input.event.ts,
+      originalTs: input.event.ts,
+      title: attentionTitle(category, input.event.channel),
+      summary: truncate(input.event.text ?? "SignalDesk detected a relevant Slack item.", 240),
+      reasons: [...input.trigger.reasons, ...input.priority.reasons, ...(input.watchReason ? [input.watchReason] : [])],
+      metadata: {
+        triggerType: input.trigger.triggerType,
+        ...(input.watchedThread === undefined ? {} : { watchedThreadId: input.watchedThread.id })
+      }
+    });
+  }
+
+  private watchedThreadTrigger(
+    event: SlackMessageLike
+  ): { trigger: TriggerDecision; watchedThread: WatchedThread; reason: string } | undefined {
+    if (!this.deps.config.watch.enabled || event.type !== "message" || isBotMessage(event) || isSelfMessage(event, this.deps.config)) {
+      return undefined;
+    }
+    const threadTs = event.thread_ts ?? event.ts;
+    const watchedThread = this.watchRepo.findActive(event.channel, threadTs);
+    if (!watchedThread || event.ts === watchedThread.lastSeenTs) {
+      return undefined;
+    }
+    const decision = shouldNotifyForWatchedThread({ config: this.deps.config, event, watchedThread });
+    this.watchRepo.updateLastSeen(watchedThread.id, event.ts);
+    if (!decision.notify) {
+      this.auditRepo.record("watched_thread_ignored", { watchedThreadId: watchedThread.id, reason: decision.reason });
+      return undefined;
+    }
+    return {
+      watchedThread,
+      reason: decision.reason,
+      trigger: { matched: true, triggerType: "dm_command", reasons: ["watched_thread", decision.reason] }
+    };
+  }
+
+  private isWatchDmCommand(event: SlackMessageLike): boolean {
+    return this.deps.config.watch.enabled && event.channel.startsWith("D") && /\bwatch this thread\b/i.test(event.text ?? "");
+  }
+
+  private async handleWatchDmCommand(event: SlackMessageLike, identity: string): Promise<DraftCreationResult> {
+    const isNewEvent = recordEventIfNew(this.deps.db, {
+      eventIdentity: identity,
+      event
+    });
+    if (!isNewEvent) {
+      return { created: false, reason: "duplicate_event" };
+    }
+    const link = extractFirstSlackLink(event.text);
+    const parsed = link ? parseSlackThreadLink(link) : undefined;
+    if (!parsed) {
+      await this.deps.client.chat.postMessage({
+        channel: event.channel,
+        text: "Send `watch this thread <Slack thread link>` and I will monitor it privately."
+      });
+      this.auditRepo.record("watch_thread_failed", { identity, reason: "missing_or_invalid_link" });
+      return { created: false, reason: "missing_or_invalid_thread_link" };
+    }
+    const watched = await this.watchThread({
+      channel: parsed.channel,
+      threadTs: parsed.threadTs,
+      ...(link === undefined ? {} : { permalink: link }),
+      reason: "dm_command"
+    });
+    this.attentionRepo.upsertFromEvent({
+      eventIdentity: identity,
+      category: "watched_thread",
+      priority: "medium",
+      state: "watching",
+      channel: parsed.channel,
+      threadTs: parsed.threadTs,
+      originalTs: event.ts,
+      ...(link === undefined ? {} : { permalink: link }),
+      title: "Watching Slack thread",
+      summary: `SignalDesk is watching ${parsed.channel} ${parsed.threadTs}.`,
+      reasons: ["dm_command", "watched_thread"],
+      metadata: { watchedThreadId: watched.id }
+    });
+    await this.deps.client.chat.postMessage({
+      channel: event.channel,
+      text: `Watching that thread. I will DM you only if it looks like you are needed.`
+    });
+    return { created: false, reason: "watch_registered" };
+  }
+}
+
+function attentionCategory(trigger: TriggerDecision, reasons: string[]): AttentionCategory {
+  if (trigger.reasons.includes("watched_thread")) {
+    return "watched_thread";
+  }
+  if (reasons.includes("incident_keywords") || reasons.includes("incident_channel")) {
+    return "incident";
+  }
+  if (reasons.includes("fyi_or_no_action")) {
+    return "fyi_batch";
+  }
+  if (trigger.triggerType === "personal_mention") {
+    return "personal_mention";
+  }
+  if (reasons.includes("waiting_on_user")) {
+    return "waiting_on_me";
+  }
+  return "direct_mention";
+}
+
+function attentionTitle(category: AttentionCategory, channel: string): string {
+  const labels: Record<AttentionCategory, string> = {
+    direct_mention: "Direct mention",
+    personal_mention: "Personal mention",
+    waiting_on_me: "Waiting on you",
+    watched_thread: "Watched thread update",
+    incident: "Incident signal",
+    fyi_batch: "Low-priority FYI"
+  };
+  return `${labels[category]} in ${channel}`;
+}
+
+function truncate(value: string, max: number): string {
+  return value.length <= max ? value : `${value.slice(0, max - 15)} [truncated]`;
 }
 
 function slackApiErrorMessage(error: unknown): string {

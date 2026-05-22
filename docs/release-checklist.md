@@ -34,6 +34,7 @@ npm init -y
 npm install "/path/to/signal-desk/$TARBALL"
 npx sig --help
 npx sig init --dry-run
+npx sig setup open --dry-run
 npx sig config validate /path/to/signal-desk/assistant.config.example.yaml
 ```
 
@@ -44,8 +45,11 @@ npx sig config validate /path/to/signal-desk/assistant.config.example.yaml
 3. Run `sig slack login`.
 4. Run `sig doctor`.
 5. Run `sig dev`.
-6. Mention `@SignalDesk` in Slack and confirm only a private DM draft is sent.
-7. Click `Post as Me` and confirm the reply is posted to the original thread.
+6. Open `sig setup open` and confirm the dashboard status, inbox, drafts, and audit tabs load.
+7. Mention `@SignalDesk` in Slack and confirm only a private DM draft is sent.
+8. Confirm `sig inbox` shows the attention item linked to the draft.
+9. Click `Post as Me` and confirm the reply is posted to the original thread.
+10. Use `Watch with SignalDesk` or `sig watch <Slack thread link>` and confirm the thread appears in `sig watch list`.
 
 ## Security Check
 

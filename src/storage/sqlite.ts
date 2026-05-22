@@ -20,6 +20,11 @@ export function initializeDatabase(db: SignalDeskDb): void {
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
 
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      id TEXT PRIMARY KEY,
+      applied_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS events (
       event_identity TEXT PRIMARY KEY,
       event_id TEXT,
@@ -146,6 +151,55 @@ export function initializeDatabase(db: SignalDeskDb): void {
       INSERT INTO local_docs_fts(rowid, title, content, path, source_id, repo_id)
       VALUES (new.rowid, new.title, new.content, new.path, new.source_id, new.repo_id);
     END;
+
+    CREATE TABLE IF NOT EXISTS attention_items (
+      id TEXT PRIMARY KEY,
+      event_identity TEXT NOT NULL UNIQUE,
+      draft_id TEXT,
+      category TEXT NOT NULL,
+      priority TEXT NOT NULL,
+      state TEXT NOT NULL,
+      channel TEXT NOT NULL,
+      thread_ts TEXT NOT NULL,
+      original_ts TEXT NOT NULL,
+      permalink TEXT,
+      title TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      reasons_json TEXT NOT NULL,
+      metadata_json TEXT NOT NULL,
+      snoozed_until TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS attention_items_state_idx ON attention_items(state, priority, updated_at);
+    CREATE INDEX IF NOT EXISTS attention_items_channel_thread_idx ON attention_items(channel, thread_ts);
+
+    CREATE TABLE IF NOT EXISTS watched_threads (
+      id TEXT PRIMARY KEY,
+      channel TEXT NOT NULL,
+      thread_ts TEXT NOT NULL,
+      permalink TEXT,
+      reason TEXT NOT NULL,
+      status TEXT NOT NULL,
+      last_seen_ts TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(channel, thread_ts)
+    );
+
+    CREATE INDEX IF NOT EXISTS watched_threads_status_idx ON watched_threads(status, channel, thread_ts);
+
+    CREATE TABLE IF NOT EXISTS style_hints (
+      id TEXT PRIMARY KEY,
+      draft_id TEXT,
+      hint TEXT NOT NULL,
+      source TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    INSERT OR IGNORE INTO schema_migrations (id, applied_at) VALUES ('0001_initial', datetime('now'));
+    INSERT OR IGNORE INTO schema_migrations (id, applied_at) VALUES ('0002_productivity_beta', datetime('now'));
   `);
 }
 

@@ -66,6 +66,10 @@ export function scorePriority(input: PriorityInput): PriorityDecision {
     return { priority: "critical", reasons };
   }
 
+  if (lowPatterns.some((pattern) => pattern.test(text)) && !waitingPatterns.some((pattern) => pattern.test(text))) {
+    return { priority: "low", reasons: ["fyi_or_no_action"] };
+  }
+
   const directMention =
     input.directMention ?? (input.event.type === "app_mention" || containsUserMention(text, input.config.profile.slack_user_id));
   if (directMention) {
@@ -86,10 +90,6 @@ export function scorePriority(input: PriorityInput): PriorityDecision {
 
   if (reasons.length > 0) {
     return { priority: "high", reasons };
-  }
-
-  if (lowPatterns.some((pattern) => pattern.test(text))) {
-    return { priority: "low", reasons: ["fyi_or_no_action"] };
   }
 
   return { priority: "medium", reasons: ["discussion_likely_relevant"] };

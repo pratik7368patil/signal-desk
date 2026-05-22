@@ -14,9 +14,12 @@ import { AuditRepo } from "../storage/auditRepo.js";
 import { openDatabase } from "../storage/sqlite.js";
 import { addDocsSource, indexDocs } from "./docsOps.js";
 import { runGitHubSetup } from "./githubOps.js";
+import { dismissInboxItem, draftInboxItem, listInbox, showInboxItem, snoozeInboxItem } from "./inboxOps.js";
 import { printDoctor, runDoctor } from "./doctor.js";
 import { runInit } from "./initOps.js";
+import { addProfileExample, updateProfile } from "./profileOps.js";
 import { addRepo, discoverRepos, mapRepoChannel, syncRepos } from "./repoOps.js";
+import { openDashboard } from "./setupOps.js";
 import {
   installService,
   isRunningFromPidFile,
@@ -27,6 +30,7 @@ import {
   spawnDetached
 } from "./serviceOps.js";
 import { addMcpToolServer, parseCommand, testMcpToolServer } from "./toolsOps.js";
+import { listWatchedThreads, stopWatchedThread, watchThreadFromLink } from "./watchOps.js";
 import { migrateConfigFile } from "./configOps.js";
 import {
   deleteSlackInstallation,
@@ -46,11 +50,13 @@ program
   .option("--dry-run", "show what would happen without writing files")
   .option("--migrate", "migrate an existing config in place")
   .option("--slack-login", "run Slack OAuth login after config checks")
+  .option("--yes", "use safe defaults for first-time setup prompts")
   .option("--no-open", "when using --slack-login, print the authorization URL without opening a browser")
-  .action(async (options: { config: string; dryRun?: boolean; migrate?: boolean; slackLogin?: boolean; open: boolean }) => {
+  .action(async (options: { config: string; dryRun?: boolean; migrate?: boolean; slackLogin?: boolean; yes?: boolean; open: boolean }) => {
     const result = await runInit(options.config, {
       ...(options.dryRun === undefined ? {} : { dryRun: options.dryRun }),
-      ...(options.migrate === undefined ? {} : { migrate: options.migrate })
+      ...(options.migrate === undefined ? {} : { migrate: options.migrate }),
+      ...(options.yes === undefined ? {} : { yes: options.yes })
     });
     for (const message of result.messages) {
       console.log(message);
@@ -66,6 +72,18 @@ program
       });
       console.log(`Slack login complete for ${installation.teamName ?? installation.teamId ?? "workspace"}`);
     }
+  });
+
+const setup = program.command("setup").description("First-time setup helpers");
+setup
+  .command("open")
+  .description("Open the local SignalDesk dashboard")
+  .option("-c, --config <path>", "config file", process.env.SIGNALD_CONFIG ?? "assistant.config.yaml")
+  .option("--dry-run", "print the dashboard URL without opening a browser")
+  .action(async (options: { config: string; dryRun?: boolean }) => {
+    const config = await loadConfig(options.config);
+    const url = openDashboard(config, { dryRun: options.dryRun ?? false });
+    console.log(url);
   });
 
 program
@@ -259,6 +277,88 @@ docs
       ...(options.repo === undefined ? {} : { repoId: options.repo })
     });
     console.log(`Added docs ${source.id}: ${source.path}`);
+  });
+
+const inbox = program.command("inbox").description("Attention inbox for mentions, watched threads, and pending drafts");
+inbox
+  .command("list", { isDefault: true })
+  .description("List attention inbox items")
+  .option("--json", "print JSON")
+  .option("--limit <n>", "maximum rows", "50")
+  .action((options: { json?: boolean; limit: string }) =>
+    listInbox({
+      ...(options.json === undefined ? {} : { json: options.json }),
+      limit: Number(options.limit)
+    })
+  );
+inbox
+  .command("show")
+  .description("Show one inbox item")
+  .argument("<id>", "attention item id")
+  .option("--json", "print JSON")
+  .action((id: string, options: { json?: boolean }) => showInboxItem(id, options));
+inbox
+  .command("dismiss")
+  .description("Dismiss one inbox item")
+  .argument("<id>", "attention item id")
+  .action((id: string) => dismissInboxItem(id));
+inbox
+  .command("snooze")
+  .description("Snooze one inbox item until an ISO timestamp")
+  .argument("<id>", "attention item id")
+  .requiredOption("--until <time>", "ISO date/time")
+  .action((id: string, options: { until: string }) => snoozeInboxItem(id, options.until));
+inbox
+  .command("draft")
+  .description("Show draft state for an inbox item")
+  .argument("<id>", "attention item id")
+  .action((id: string) => draftInboxItem(id));
+
+const watch = program.command("watch").description("Watch Slack threads privately");
+watch
+  .argument("[slackLink]", "Slack thread link")
+  .option("--reason <reason>", "watch reason", "cli")
+  .action((slackLink: string | undefined, options: { reason: string }) => {
+    if (!slackLink) {
+      listWatchedThreads();
+      return;
+    }
+    watchThreadFromLink(slackLink, options.reason);
+  });
+watch
+  .command("list")
+  .description("List watched threads")
+  .option("--json", "print JSON")
+  .action((options: { json?: boolean }) => listWatchedThreads(options));
+watch
+  .command("stop")
+  .description("Stop watching a thread")
+  .argument("<id>", "watched thread id")
+  .action((id: string) => stopWatchedThread(id));
+
+const profile = program.command("profile").description("User profile and writing style helpers");
+profile
+  .command("edit")
+  .description("Update profile fields")
+  .option("-c, --config <path>", "config file", process.env.SIGNALD_CONFIG ?? "assistant.config.yaml")
+  .option("--role <role>", "role")
+  .option("--tone <tone>", "preferred tone")
+  .option("--format <format>", "preferred Slack reply format")
+  .option("--uncertainty <text>", "default uncertainty language")
+  .option("--note <note>", "writing style note")
+  .action((options: { config: string; role?: string; tone?: string; format?: string; uncertainty?: string; note?: string }) => {
+    updateProfile(options.config, options);
+    console.log(`Updated ${options.config}`);
+  });
+const profileExamples = profile.command("examples").description("Writing-style examples");
+profileExamples
+  .command("add")
+  .description("Add a writing-style example")
+  .argument("<text>", "example text")
+  .option("-c, --config <path>", "config file", process.env.SIGNALD_CONFIG ?? "assistant.config.yaml")
+  .action((text: string, options: { config: string }) => {
+    addProfileExample(options.config, text);
+    console.log("Added writing-style example");
   });
 
 docs

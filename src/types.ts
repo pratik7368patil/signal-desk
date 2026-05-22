@@ -4,6 +4,15 @@ import type { ContextBundle } from "./context/types.js";
 export type Priority = "critical" | "high" | "medium" | "low" | "ignore";
 
 export type DraftStatus = "pending" | "posted" | "dismissed" | "failed";
+export type AttentionState = "new" | "drafted" | "watching" | "posted" | "dismissed" | "snoozed" | "failed";
+export type AttentionCategory =
+  | "direct_mention"
+  | "personal_mention"
+  | "waiting_on_me"
+  | "watched_thread"
+  | "incident"
+  | "fyi_batch";
+export type WatchedThreadStatus = "active" | "stopped";
 
 export type SlackTriggerType = "app_mention" | "personal_mention" | "message_shortcut" | "dm_command";
 
@@ -94,6 +103,11 @@ export interface AgentPrompt {
     preferred_tone: string;
     escalation_style: string;
     default_uncertainty_language: string;
+    writing_style?: {
+      preferred_format: string;
+      notes: string[];
+      examples: string[];
+    };
   };
 }
 
@@ -124,6 +138,38 @@ export interface StoredDraft {
   status: DraftStatus;
   dmChannel?: string;
   dmTs?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AttentionItem {
+  id: string;
+  eventIdentity: string;
+  draftId?: string;
+  category: AttentionCategory;
+  priority: Exclude<Priority, "ignore">;
+  state: AttentionState;
+  channel: string;
+  threadTs: string;
+  originalTs: string;
+  permalink?: string;
+  title: string;
+  summary: string;
+  reasons: string[];
+  metadata: Record<string, unknown>;
+  snoozedUntil?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WatchedThread {
+  id: string;
+  channel: string;
+  threadTs: string;
+  permalink?: string;
+  reason: string;
+  status: WatchedThreadStatus;
+  lastSeenTs?: string;
   createdAt: string;
   updatedAt: string;
 }

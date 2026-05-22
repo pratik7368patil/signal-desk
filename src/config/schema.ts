@@ -68,9 +68,62 @@ export const ToolProviderSchema = z.object({
   read_only: z.literal(true).default(true)
 });
 
+export const DashboardConfigSchema = z
+  .object({
+    enabled: z.boolean().default(true),
+    host: nonEmptyString.default("127.0.0.1"),
+    port: z.number().int().positive().max(65535).default(31337)
+  })
+  .default({
+    enabled: true,
+    host: "127.0.0.1",
+    port: 31337
+  });
+
+export const InboxConfigSchema = z
+  .object({
+    enabled: z.boolean().default(true),
+    batch_low_priority: z.boolean().default(true),
+    retention_days: z.number().int().positive().max(365).default(14)
+  })
+  .default({
+    enabled: true,
+    batch_low_priority: true,
+    retention_days: 14
+  });
+
+export const WatchConfigSchema = z
+  .object({
+    enabled: z.boolean().default(true),
+    allowed_channels: z.array(nonEmptyString).default([]),
+    notification_rules: z
+      .object({
+        user_mentions: z.boolean().default(true),
+        waiting_on_user: z.boolean().default(true),
+        incident_language: z.boolean().default(true),
+        reopened_after_minutes: z.number().int().positive().max(10_080).default(120)
+      })
+      .default({
+        user_mentions: true,
+        waiting_on_user: true,
+        incident_language: true,
+        reopened_after_minutes: 120
+      })
+  })
+  .default({
+    enabled: true,
+    allowed_channels: [],
+    notification_rules: {
+      user_mentions: true,
+      waiting_on_user: true,
+      incident_language: true,
+      reopened_after_minutes: 120
+    }
+  });
+
 export const AssistantConfigSchema = z
   .object({
-    config_version: z.literal(1).default(1),
+    config_version: z.literal(2).default(2),
     profile: z.object({
       slack_user_id: nonEmptyString,
       timezone: nonEmptyString.default("UTC"),
@@ -79,8 +132,20 @@ export const AssistantConfigSchema = z
       owned_systems: z.array(nonEmptyString).default([]),
       preferred_tone: z.string().default("concise, warm, direct"),
       escalation_style: z.string().default("be explicit about urgency and unknowns"),
-      default_uncertainty_language: z.string().default("I may be missing context, but based on what I can see")
+      default_uncertainty_language: z.string().default("I may be missing context, but based on what I can see"),
+      writing_style: z
+        .object({
+          preferred_format: z.string().default("concise Slack reply with short paragraphs or bullets when helpful"),
+          notes: z.array(nonEmptyString).default([]),
+          examples: z.array(nonEmptyString).default([])
+        })
+        .default({
+          preferred_format: "concise Slack reply with short paragraphs or bullets when helpful",
+          notes: [],
+          examples: []
+        })
     }),
+    dashboard: DashboardConfigSchema,
     slack: z.object({
       draft_surface: z.literal("dm").default("dm"),
       post_mode: z.literal("manual_only").default("manual_only"),
@@ -133,6 +198,8 @@ export const AssistantConfigSchema = z
     }),
     repositories: z.array(RepositorySchema).default([]),
     local_docs: z.array(LocalDocsSourceSchema).default([]),
+    inbox: InboxConfigSchema,
+    watch: WatchConfigSchema,
     mcp: z
       .object({
         enabled: z.boolean().default(true),

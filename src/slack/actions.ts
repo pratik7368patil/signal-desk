@@ -16,6 +16,7 @@ export function registerActions(app: any, service: DraftService): void {
   app.action(ACTION_IDS.explainSources, async (args: BoltActionArgs) => handleExplainSourcesAction(args, service));
   if (typeof app.shortcut === "function") {
     app.shortcut(SHORTCUT_IDS.draftWithSignalDesk, async (args: BoltActionArgs) => handleMessageShortcutAction(args, service));
+    app.shortcut(SHORTCUT_IDS.watchWithSignalDesk, async (args: BoltActionArgs) => handleWatchShortcutAction(args, service));
   }
   app.view(VIEW_IDS.editDraft, async (args: { ack: () => Promise<void> | void; body: Record<string, unknown>; view: Record<string, unknown> }) =>
     handleEditSubmission(args, service)
@@ -82,6 +83,28 @@ export async function handleMessageShortcutAction(args: BoltActionArgs, service:
   });
 }
 
+export async function handleWatchShortcutAction(args: BoltActionArgs, service: DraftService): Promise<void> {
+  await args.ack();
+  const event = extractShortcutMessage(args.body);
+  if (!event) {
+    return;
+  }
+  const watched = await service.watchThread({
+    channel: event.channel,
+    threadTs: event.thread_ts ?? event.ts,
+    reason: "message_shortcut",
+    lastSeenTs: event.ts
+  });
+  const userId = extractUserId(args.body);
+  if (userId && args.client?.chat.postMessage) {
+    await args.client.chat.postMessage({
+      channel: userId,
+      text: `Watching that thread. I will DM you only if it looks like you are needed.`
+    });
+  }
+  service.auditRepo.record("watch_shortcut_registered", { watchedThreadId: watched.id });
+}
+
 export async function handleEditSubmission(
   args: { ack: () => Promise<void> | void; body: Record<string, unknown>; view: Record<string, unknown> },
   service: DraftService
@@ -121,6 +144,14 @@ function extractResponseChannel(body: Record<string, unknown>): string | undefin
   const container = body.container;
   if (typeof container === "object" && container !== null && typeof (container as { channel_id?: unknown }).channel_id === "string") {
     return (container as { channel_id: string }).channel_id;
+  }
+  return undefined;
+}
+
+function extractUserId(body: Record<string, unknown>): string | undefined {
+  const user = body.user;
+  if (typeof user === "object" && user !== null && typeof (user as { id?: unknown }).id === "string") {
+    return (user as { id: string }).id;
   }
   return undefined;
 }

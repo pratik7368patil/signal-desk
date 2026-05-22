@@ -3,6 +3,7 @@ import { AnchorClient } from "../../src/anchor/anchorClient.js";
 import { CliAgent } from "../../src/agents/cliAgent.js";
 import { DraftService } from "../../src/core/draftService.js";
 import { handlePostAction } from "../../src/slack/actions.js";
+import { AttentionRepo } from "../../src/storage/attentionRepo.js";
 import { openDatabase } from "../../src/storage/sqlite.js";
 import { fakeSlackClient, testConfig } from "../helpers.js";
 
@@ -45,10 +46,60 @@ describe("DraftService", () => {
     expect(service.draftsRepo.getDraft(result.draft!.id)).toBeDefined();
     expect(postCalls).toHaveLength(1);
     expect(postCalls[0]?.channel).toBe("DME");
+    expect(new AttentionRepo(db).list({ limit: 10 })[0]).toMatchObject({
+      eventIdentity: "Ev1",
+      category: "direct_mention",
+      state: "drafted",
+      priority: "high",
+      draftId: result.draft!.id
+    });
     expect(reactionCalls).toContainEqual({
       channel: "C123",
       timestamp: "123.000",
       name: "eyes"
+    });
+  });
+
+  it("batches low-priority items without creating an immediate draft", async () => {
+    const db = openDatabase(":memory:");
+    const { client, postCalls } = fakeSlackClient();
+    const service = new DraftService({
+      config: testConfig({
+        triggers: {
+          bot_mentions: { enabled: true },
+          personal_mentions: {
+            enabled: true,
+            allowed_channels: [],
+            excluded_channels: [],
+            ignore_bots: true,
+            ignore_self: true
+          }
+        },
+        inbox: {
+          enabled: true,
+          batch_low_priority: true,
+          retention_days: 14
+        }
+      }),
+      client,
+      db,
+      anchorClient: new AnchorClient({ exists: async () => false }),
+      cliAgent: validCliAgent()
+    });
+
+    const result = await service.handleEvent({
+      event_id: "EvLow",
+      event: { type: "message", channel: "C123", user: "UASK", text: "<@UME> fyi no action", ts: "123.500" }
+    });
+
+    expect(result.created).toBe(false);
+    expect(result.reason).toBe("low_priority_batched");
+    expect(postCalls).toHaveLength(0);
+    expect(new AttentionRepo(db).list({ limit: 10 })[0]).toMatchObject({
+      eventIdentity: "EvLow",
+      category: "fyi_batch",
+      state: "new",
+      priority: "low"
     });
   });
 
@@ -189,6 +240,7 @@ describe("DraftService", () => {
       thread_ts: "120.000"
     });
     expect(service.draftsRepo.getDraft(result.draft!.id)?.status).toBe("posted");
+    expect(new AttentionRepo(db).list({ limit: 10, includeDismissed: true })[0]?.state).toBe("posted");
   });
 
   it("uses a Slack user token client for approved posting when available", async () => {

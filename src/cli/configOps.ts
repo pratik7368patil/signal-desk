@@ -10,7 +10,7 @@ export interface ConfigMutationResult {
   text: string;
 }
 
-export const DEFAULT_CONFIG_TEXT = `config_version: 1
+export const DEFAULT_CONFIG_TEXT = `config_version: 2
 
 profile:
   slack_user_id: "U1234567890"
@@ -21,6 +21,15 @@ profile:
   preferred_tone: "concise, warm, direct"
   escalation_style: "be explicit about urgency and unknowns"
   default_uncertainty_language: "I may be missing context, but based on what I can see"
+  writing_style:
+    preferred_format: "concise Slack reply with short paragraphs or bullets when helpful"
+    notes: []
+    examples: []
+
+dashboard:
+  enabled: true
+  host: "127.0.0.1"
+  port: 31337
 
 slack:
   draft_surface: "dm"
@@ -69,6 +78,20 @@ context:
 
 repositories: []
 local_docs: []
+
+inbox:
+  enabled: true
+  batch_low_priority: true
+  retention_days: 14
+
+watch:
+  enabled: true
+  allowed_channels: []
+  notification_rules:
+    user_mentions: true
+    waiting_on_user: true
+    incident_language: true
+    reopened_after_minutes: 120
 
 mcp:
   enabled: true
@@ -154,13 +177,28 @@ export function migrateConfigText(text: string): ConfigMutationResult {
     }
   };
 
-  ensure(["config_version"], 1);
+  if (doc.getIn(["config_version"], true) !== 2) {
+    doc.setIn(["config_version"], 2);
+    changed = true;
+  }
   ensure(["profile", "role"], "");
   ensure(["profile", "teams"], []);
   ensure(["profile", "owned_systems"], []);
   ensure(["profile", "preferred_tone"], "concise, warm, direct");
   ensure(["profile", "escalation_style"], "be explicit about urgency and unknowns");
   ensure(["profile", "default_uncertainty_language"], "I may be missing context, but based on what I can see");
+  ensure(["profile", "writing_style"], {
+    preferred_format: "concise Slack reply with short paragraphs or bullets when helpful",
+    notes: [],
+    examples: []
+  });
+  ensure(["profile", "writing_style", "preferred_format"], "concise Slack reply with short paragraphs or bullets when helpful");
+  ensure(["profile", "writing_style", "notes"], []);
+  ensure(["profile", "writing_style", "examples"], []);
+  ensure(["dashboard"], { enabled: true, host: "127.0.0.1", port: 31337 });
+  ensure(["dashboard", "enabled"], true);
+  ensure(["dashboard", "host"], "127.0.0.1");
+  ensure(["dashboard", "port"], 31337);
   ensure(["slack", "oauth", "scopes"], ["app_mentions:read", "commands", "chat:write", "users:read", "channels:history", "reactions:write", "im:write"]);
   ensure(["slack", "oauth", "user_scopes"], ["channels:history", "groups:history", "im:history", "mpim:history", "search:read", "chat:write"]);
   addUniqueListItem(["slack", "oauth", "scopes"], "commands");
@@ -168,6 +206,26 @@ export function migrateConfigText(text: string): ConfigMutationResult {
   addUniqueListItem(["slack", "oauth", "scopes"], "im:write");
   ensure(["context", "max_evidence_items"], 24);
   ensure(["local_docs"], []);
+  ensure(["inbox"], { enabled: true, batch_low_priority: true, retention_days: 14 });
+  ensure(["inbox", "enabled"], true);
+  ensure(["inbox", "batch_low_priority"], true);
+  ensure(["inbox", "retention_days"], 14);
+  ensure(["watch"], {
+    enabled: true,
+    allowed_channels: [],
+    notification_rules: {
+      user_mentions: true,
+      waiting_on_user: true,
+      incident_language: true,
+      reopened_after_minutes: 120
+    }
+  });
+  ensure(["watch", "enabled"], true);
+  ensure(["watch", "allowed_channels"], []);
+  ensure(["watch", "notification_rules", "user_mentions"], true);
+  ensure(["watch", "notification_rules", "waiting_on_user"], true);
+  ensure(["watch", "notification_rules", "incident_language"], true);
+  ensure(["watch", "notification_rules", "reopened_after_minutes"], 120);
   ensure(["tools"], { providers: [] });
   ensure(["tools", "providers"], []);
   ensure(["focus", "attention_budget", "quiet_hours"], { enabled: false, start: "18:00", end: "09:00" });

@@ -12,6 +12,7 @@ flowchart TD
   Events --> Trigger["Trigger router\nsrc/core/triggerRouter.ts"]
   Trigger --> Score["Priority scorer\nsrc/core/priorityScorer.ts"]
   Score --> Context["Slack context collector\nbot/user client"]
+  Score --> Inbox["Attention Inbox\nattention_items"]
   Context --> Cache["Short-lived Slack FTS cache\nsrc/storage/slackCacheRepo.ts"]
   Context --> Repos["Repo selector\nsrc/core/repoSelector.ts"]
   Repos --> Engine["Context engine + ranking\nsrc/context/*"]
@@ -23,6 +24,7 @@ flowchart TD
   Prompt --> Agent["Local CLI agent\nsrc/agents/cliAgent.ts"]
   Agent --> Store["SQLite storage\nsrc/storage/*"]
   Store --> DraftDM["Private draft DM\nsrc/slack/draftMessages.ts"]
+  Store --> Dashboard["Local dashboard\n127.0.0.1:31337"]
   DraftDM --> Actions["Edit / Regenerate / Post as Me / Explain / Dismiss"]
   Actions -->|approved post only| Thread["Original Slack thread"]
 ```
@@ -47,6 +49,7 @@ flowchart TD
 | Slack | `src/slack/*` | Bolt setup, event registration, action handlers, draft DM blocks, Slack context collection. |
 | Context | `src/context/*` | Provider SDK, evidence model, local docs indexing, evidence ranking. |
 | Core | `src/core/*` | Trigger detection, priority scoring, repo selection, prompt building, draft orchestration. |
+| Dashboard | `src/dashboard/*` | Local setup/status/inbox/drafts/audit UI and JSON APIs. |
 | Anchor | `src/anchor/*` | Run Anchor indexing commands and call Anchor's MCP tools. |
 | MCP | `src/mcp/*` | Generic stdio MCP client and registry for read-only local tools. |
 | Agents | `src/agents/*` | Select and run configured CLI agents. |
@@ -59,14 +62,31 @@ flowchart TD
 3. `triggerRouter` decides whether the event is relevant.
 4. `priorityScorer` returns `critical`, `high`, `medium`, `low`, or `ignore`.
 5. Ignore items stop before draft generation.
-6. `contextCollector` fetches thread replies and permalink when available.
-7. `repoSelector` chooses repositories by channel or keyword.
-8. `ContextEngine` gathers evidence from Slack thread/history/search, short-lived Slack cache, Anchor, and local docs.
-9. Evidence is ranked by trust, source, lexical match, repo/channel match, and prompt budget.
-10. `promptBuilder` creates the strict JSON prompt contract with a `context_bundle`.
-11. `CliAgent` runs the configured local command with JSON stdin.
-12. The draft is stored in SQLite and sent to the user by private DM.
-13. Slack action buttons update, explain, dismiss, or post the draft after approval.
+6. Relevant non-ignore items create or update an Attention Inbox item.
+7. Low-priority items can be batched into the inbox without immediate DM interruption.
+8. `contextCollector` fetches thread replies and permalink when available.
+9. `repoSelector` chooses repositories by channel or keyword.
+10. `ContextEngine` gathers evidence from Slack thread/history/search, short-lived Slack cache, Anchor, and local docs.
+11. Evidence is ranked by trust, source, lexical match, repo/channel match, and prompt budget.
+12. `promptBuilder` creates the strict JSON prompt contract with a `context_bundle`.
+13. `CliAgent` runs the configured local command with JSON stdin.
+14. The draft is stored in SQLite, linked to the inbox item, and sent to the user by private DM.
+15. Slack action buttons update, explain, dismiss, or post the draft after approval.
+
+## Local Dashboard
+
+`signald` serves a local dashboard on `dashboard.host:dashboard.port`, defaulting to `http://127.0.0.1:31337`.
+
+Dashboard APIs:
+
+- `GET /api/status`: sanitized config summary plus Slack/daemon status.
+- `GET /api/inbox`: current attention items.
+- `GET /api/drafts`: recent drafts.
+- `GET /api/audit`: recent audit rows.
+- `POST /api/inbox/:id/dismiss` and `/snooze`: local inbox actions.
+- `POST /api/watch` and `/api/watch/:id/stop`: local watched-thread controls.
+
+The dashboard does not return Slack tokens, npm tokens, agent environment, or raw credential files.
 
 ## Posting Model
 
@@ -86,6 +106,10 @@ Tables:
 
 - `events`: event identity and raw event JSON for dedupe/audit.
 - `drafts`: draft text, status, selected repos, selected agent, prompt hash, timestamps.
+- `attention_items`: private attention inbox items linked to Slack events and drafts.
+- `watched_threads`: Slack threads the user asked SignalDesk to monitor.
+- `style_hints`: local style notes derived from draft edits without storing raw edit diffs.
+- `schema_migrations`: local DB migration markers.
 - `audit_logs`: local audit trail for ignored events, prompt decisions, DMs, edits, posting, and dismissals.
 - `provider_metadata`: provider health/status metadata.
 - `slack_messages` + `slack_messages_fts`: short-lived Slack context cache with TTL.

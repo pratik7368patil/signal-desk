@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { migrateConfigObject, parseConfig } from "../../src/config/loadConfig.js";
 
 describe("config validation", () => {
-  it("migrates older config objects to config_version 1 defaults", () => {
+  it("migrates older config objects to config_version 2 defaults", () => {
     const migrated = migrateConfigObject({
       profile: { slack_user_id: "UME", timezone: "Asia/Kolkata" },
       slack: { draft_surface: "dm", post_mode: "manual_only", max_drafts_per_hour: 20 },
@@ -42,10 +42,15 @@ describe("config validation", () => {
     });
 
     const config = parseConfig(migrated);
-    expect(config.config_version).toBe(1);
+    expect(config.config_version).toBe(2);
     expect(config.local_docs).toEqual([]);
     expect(config.tools.providers).toEqual([]);
     expect(config.context.max_evidence_items).toBe(24);
+    expect(config.dashboard.enabled).toBe(true);
+    expect(config.dashboard.port).toBe(31337);
+    expect(config.inbox.enabled).toBe(true);
+    expect(config.watch.enabled).toBe(true);
+    expect(config.profile.writing_style.preferred_format).toContain("Slack");
     expect(config.slack.oauth.scopes).toContain("commands");
     expect(config.slack.oauth.scopes).toContain("reactions:write");
     expect(config.slack.oauth.scopes).toContain("im:write");

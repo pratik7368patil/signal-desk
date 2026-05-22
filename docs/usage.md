@@ -15,6 +15,7 @@ For npm users:
 ```bash
 npm install -g @pratik7368patil/signald
 sig init
+sig setup open
 sig doctor
 ```
 
@@ -366,6 +367,14 @@ sig stop
 
 Slack's presence dot is not the source of truth for local Socket Mode health. Use `sig status` and `sig service logs`; mentioning SignalDesk only works while the local `signald` process is running.
 
+Open the local dashboard:
+
+```bash
+sig setup open
+```
+
+The dashboard runs from `signald` on `http://127.0.0.1:31337` by default. It shows setup progress, daemon/Slack/agent status, the Attention Inbox, recent drafts, and audit logs. It never prints Slack tokens.
+
 OS service helpers:
 
 ```bash
@@ -382,12 +391,49 @@ Common flows:
 
 - Mention the bot: `@SignalDesk can you draft a reply here?`
 - Use the message shortcut: `Draft with SignalDesk`.
-- DM SignalDesk: `watch this thread` or `help me reply`.
+- Use the message shortcut: `Watch with SignalDesk`.
+- DM SignalDesk: `watch this thread <Slack thread link>` or `help me reply`.
+- CLI watch: `sig watch <Slack thread link>`.
 - Optional personal mention watcher: enable `triggers.personal_mentions.enabled` to draft when someone mentions `<@YOUR_USER_ID>`.
 
 The public `@SignalDesk ...` mention is visible to everyone in that channel because it is a normal Slack message. The draft reply is private in your DM. Nothing is posted back to the thread until you click `Post as Me`.
 
 If personal mention watching is disabled, SignalDesk does not draft when people mention you. If enabled, it only watches the channels allowed by config and still sends private drafts.
+
+## 10. Use The Attention Inbox
+
+SignalDesk records private attention items for relevant mentions, watched-thread updates, low-priority FYIs, and pending drafts.
+
+```bash
+sig inbox
+sig inbox show <id>
+sig inbox snooze <id> --until 2026-05-22T18:00:00+05:30
+sig inbox dismiss <id>
+```
+
+Low-priority FYIs are batched by default when `inbox.batch_low_priority` is true. They remain visible in `sig inbox` and the dashboard without creating an immediate draft DM.
+
+Watched threads are private:
+
+```bash
+sig watch <Slack thread link>
+sig watch list
+sig watch stop <id>
+```
+
+SignalDesk only interrupts for watched-thread updates when the user is mentioned, someone asks for review/input/approval, incident language appears, or a quiet thread reopens after the configured threshold.
+
+## 11. Tune Your Writing Style
+
+Use profile commands to steer draft tone locally:
+
+```bash
+sig profile edit --role "Staff engineer" --tone "concise, calm, technical"
+sig profile edit --format "short Slack reply, bullets for rollout or incident answers"
+sig profile examples add "I can take this. I need the rollout link before I can confirm safety."
+```
+
+When you edit a draft, SignalDesk records a local style hint such as “adds uncertainty language” without storing the raw edit diff.
 
 ## Common Commands
 
@@ -401,6 +447,9 @@ sig doctor
 sig config validate
 sig slack login
 sig slack status
+sig setup open
+sig inbox
+sig watch <Slack thread link>
 sig repos discover ~/code
 sig repos add ~/code/payments-service --github your-org/payments-service
 sig repos index

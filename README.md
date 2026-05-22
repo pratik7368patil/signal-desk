@@ -9,6 +9,7 @@ For npm users:
 ```bash
 npm install -g @pratik7368patil/signald
 sig init
+sig setup open
 sig doctor
 ```
 
@@ -83,6 +84,7 @@ signald
 ## CLI
 
 - `sig init`: create or migrate local config and print setup next steps
+- `sig setup open`: open the local dashboard at `http://127.0.0.1:31337`
 - `sig doctor`: check Slack, OAuth, SQLite, Anchor, repos, docs, agent, and daemon health
 - `sig dev`: run `signald` in the foreground
 - `sig start`: start `signald` in the background
@@ -94,6 +96,12 @@ signald
 - `sig github setup`: select GitHub repositories with `gh`, add them to config, and index them
 - `sig repos discover/add/list/index/sync/map-channel`: configure repositories and Anchor indexes
 - `sig docs add/list/index`: configure and index local docs into SQLite FTS
+- `sig inbox`: list attention items for mentions, watched threads, batched FYIs, and pending drafts
+- `sig inbox show/dismiss/snooze/draft`: inspect and manage attention items
+- `sig watch <slack-link>`: privately watch a Slack thread for follow-up signals
+- `sig watch list/stop`: inspect or stop watched threads
+- `sig profile edit`: update role, tone, uncertainty language, and writing-style notes
+- `sig profile examples add`: add a local writing-style example
 - `sig tools add-mcp/list/test`: configure read-only MCP context tools
 - `sig service install/start/stop/logs`: install or inspect local service helpers
 - `sig audit`: inspect local audit logs
@@ -103,7 +111,18 @@ signald
 - `sig mcp call`: call an allowed read-only MCP tool
 - `sig test`: run tests
 - `sig config validate`: validate `assistant.config.yaml`
-- `sig config migrate`: migrate older configs to `config_version: 1`
+- `sig config migrate`: migrate older configs to `config_version: 2`
+
+## Local Dashboard
+
+`signald` serves a dependency-light local dashboard on `127.0.0.1:31337` when `dashboard.enabled` is true:
+
+```bash
+sig start
+sig setup open
+```
+
+The dashboard shows setup steps, daemon/Slack/agent status, the Attention Inbox, recent drafts, and audit logs. It never exposes Slack tokens. If you open `/slack/oauth/callback` directly, the page explains that the callback only works during `sig slack login`.
 
 ## Docs
 
@@ -226,6 +245,8 @@ SignalDesk passes only a minimal environment allowlist to agents. It does not as
 - `Edit` uses a Slack modal
 - `Post as Me` sends to the original thread with `channel` and `thread_ts`, using the Slack user token when available
 - Event handling does not post to the original channel
+- Low-priority items can be batched into `sig inbox` instead of interrupting you immediately
+- Watched threads notify privately only when SignalDesk detects a mention, review/approval ask, incident language, or a reopened thread
 
 ## Verification
 

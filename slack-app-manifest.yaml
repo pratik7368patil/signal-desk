@@ -12,6 +12,10 @@ features:
       type: message
       callback_id: signald_draft_with_signald
       description: Create a private SignalDesk draft from this message.
+    - name: Watch with SignalDesk
+      type: message
+      callback_id: signald_watch_with_signald
+      description: Privately watch this thread for follow-up signals.
 oauth_config:
   redirect_urls:
     - http://127.0.0.1:31337/slack/oauth/callback
@@ -35,6 +39,7 @@ settings:
   event_subscriptions:
     bot_events:
       - app_mention
+      - message.channels
   interactivity:
     is_enabled: true
   org_deploy_enabled: false
@@ -42,9 +47,9 @@ settings:
   is_hosted: false
   token_rotation_enabled: false
 
-# Optional personal mention mode:
-# Add message.channels plus the relevant bot/user history scopes for the places where
-# SignalDesk should watch for <@USER_ID> mentions.
+# Optional private/personal surfaces:
+# Add the relevant message events and history scopes for private channels, MPIMs,
+# and DMs where SignalDesk should watch for <@USER_ID> mentions or watched-thread updates.
 # Optional scopes:
 #   - groups:history
 #   - mpim:history

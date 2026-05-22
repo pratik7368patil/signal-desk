@@ -95,6 +95,14 @@ export class DraftsRepo {
     return row ? rowToDraft(row) : undefined;
   }
 
+  list(options: { limit?: number; status?: DraftStatus } = {}): StoredDraft[] {
+    const limit = Math.min(Math.max(options.limit ?? 50, 1), 500);
+    const rows = options.status
+      ? (this.db.prepare("SELECT * FROM drafts WHERE status = ? ORDER BY updated_at DESC LIMIT ?").all(options.status, limit) as unknown as DraftRow[])
+      : (this.db.prepare("SELECT * FROM drafts ORDER BY updated_at DESC LIMIT ?").all(limit) as unknown as DraftRow[]);
+    return rows.map(rowToDraft);
+  }
+
   attachDm(id: string, dmChannel: string, dmTs: string): void {
     this.db
       .prepare("UPDATE drafts SET dm_channel = ?, dm_ts = ?, updated_at = ? WHERE id = ?")

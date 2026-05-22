@@ -6,7 +6,17 @@ export function testConfig(overrides: Partial<AssistantConfig> = {}): AssistantC
   const base = parseConfig({
     profile: {
       slack_user_id: "UME",
-      timezone: "Asia/Kolkata"
+      timezone: "Asia/Kolkata",
+      writing_style: {
+        preferred_format: "concise Slack reply with short paragraphs or bullets when helpful",
+        notes: [],
+        examples: []
+      }
+    },
+    dashboard: {
+      enabled: true,
+      host: "127.0.0.1",
+      port: 31337
     },
     slack: {
       draft_surface: "dm",
@@ -65,6 +75,21 @@ export function testConfig(overrides: Partial<AssistantConfig> = {}): AssistantC
         exclude: ["node_modules/**"]
       }
     ],
+    inbox: {
+      enabled: true,
+      batch_low_priority: true,
+      retention_days: 14
+    },
+    watch: {
+      enabled: true,
+      allowed_channels: [],
+      notification_rules: {
+        user_mentions: true,
+        waiting_on_user: true,
+        incident_language: true,
+        reopened_after_minutes: 120
+      }
+    },
     mcp: {
       enabled: true,
       servers: []
@@ -165,6 +190,7 @@ function mergeConfig(config: AssistantConfig, overrides: Partial<AssistantConfig
     ...config,
     ...overrides,
     profile: { ...config.profile, ...overrides.profile },
+    dashboard: { ...config.dashboard, ...overrides.dashboard },
     slack: { ...config.slack, ...overrides.slack },
     triggers: {
       ...config.triggers,
@@ -173,6 +199,12 @@ function mergeConfig(config: AssistantConfig, overrides: Partial<AssistantConfig
       personal_mentions: { ...config.triggers.personal_mentions, ...overrides.triggers?.personal_mentions }
     },
     context: { ...config.context, ...overrides.context },
+    inbox: { ...config.inbox, ...overrides.inbox },
+    watch: {
+      ...config.watch,
+      ...overrides.watch,
+      notification_rules: { ...config.watch.notification_rules, ...overrides.watch?.notification_rules }
+    },
     mcp: { ...config.mcp, ...overrides.mcp, servers: overrides.mcp?.servers ?? config.mcp.servers },
     focus: {
       ...config.focus,

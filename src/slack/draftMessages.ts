@@ -13,7 +13,8 @@ export const VIEW_IDS = {
 } as const;
 
 export const SHORTCUT_IDS = {
-  draftWithSignalDesk: "signald_draft_with_signald"
+  draftWithSignalDesk: "signald_draft_with_signald",
+  watchWithSignalDesk: "signald_watch_with_signald"
 } as const;
 
 export function buildDraftFallbackText(draft: StoredDraft): string {
@@ -27,6 +28,8 @@ export function buildDraftBlocks(draft: StoredDraft): Array<Record<string, unkno
   const original = draft.promptJson ? extractPermalink(draft.promptJson) : undefined;
   const contextSummary = draft.promptJson ? extractContextSummary(draft.promptJson) : "Slack context was gathered locally.";
   const contextSources = draft.promptJson ? extractContextSources(draft.promptJson) : sources;
+  const why = draft.promptJson ? extractWhy(draft.promptJson) : `Priority: ${draft.priority}`;
+  const missingInfo = assumptions === "None" ? "No missing information called out." : assumptions;
 
   return [
     {
@@ -46,6 +49,10 @@ export function buildDraftBlocks(draft: StoredDraft): Array<Record<string, unkno
         {
           type: "mrkdwn",
           text: `*Agent:*\n${escapeMrkdwn(draft.selectedAgent)}`
+        },
+        {
+          type: "mrkdwn",
+          text: `*Confidence:*\n${Math.round(draft.confidence * 100)}%`
         }
       ]
     },
@@ -64,6 +71,13 @@ export function buildDraftBlocks(draft: StoredDraft): Array<Record<string, unkno
       type: "section",
       text: {
         type: "mrkdwn",
+        text: `*Why this triggered*\n${escapeMrkdwn(truncateForSlack(why, 900))}`
+      }
+    },
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
         text: `*Context summary*\n${escapeMrkdwn(truncateForSlack(contextSummary, 1200))}`
       }
     },
@@ -78,7 +92,7 @@ export function buildDraftBlocks(draft: StoredDraft): Array<Record<string, unkno
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*Assumptions*\n${escapeMrkdwn(truncateForSlack(assumptions, 1400))}`
+        text: `*Missing info / assumptions*\n${escapeMrkdwn(truncateForSlack(missingInfo, 1400))}`
       }
     },
     {
@@ -111,7 +125,7 @@ export function buildDraftBlocks(draft: StoredDraft): Array<Record<string, unkno
           value: draft.id,
           confirm: {
             title: { type: "plain_text", text: "Post reply?" },
-            text: { type: "mrkdwn", text: "SignalDesk will post this draft to the original Slack thread after this approval." },
+            text: { type: "mrkdwn", text: "SignalDesk will post this exact draft to the original Slack thread only after this approval." },
             confirm: { type: "plain_text", text: "Post as Me" },
             deny: { type: "plain_text", text: "Cancel" }
           }
@@ -132,6 +146,24 @@ export function buildDraftBlocks(draft: StoredDraft): Array<Record<string, unkno
       ]
     }
   ];
+}
+
+function extractWhy(promptJson: string): string {
+  try {
+    const prompt = JSON.parse(promptJson) as {
+      priority?: { priority?: unknown; reasons?: unknown };
+      context_bundle?: { assumptions?: unknown };
+    };
+    const priority = typeof prompt.priority?.priority === "string" ? prompt.priority.priority : "unknown";
+    const reasons = Array.isArray(prompt.priority?.reasons)
+      ? prompt.priority.reasons.filter((item): item is string => typeof item === "string")
+      : [];
+    return [`Priority: ${priority}`, reasons.length > 0 ? `Reasons: ${reasons.join(", ")}` : undefined]
+      .filter((line): line is string => line !== undefined)
+      .join("\n");
+  } catch {
+    return "SignalDesk detected a relevant Slack item.";
+  }
 }
 
 export function buildEditModal(draft: StoredDraft): Record<string, unknown> {

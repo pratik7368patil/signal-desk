@@ -45,11 +45,49 @@ export function migrateConfigObject(raw: unknown): unknown {
     return raw;
   }
   const value = raw as Record<string, unknown>;
+  const tools = asRecord(value.tools);
   return {
-    config_version: 1,
-    local_docs: [],
-    tools: { providers: [] },
-    ...value
+    dashboard: { enabled: true, host: "127.0.0.1", port: 31337, ...(asRecord(value.dashboard) ?? {}) },
+    inbox: { enabled: true, batch_low_priority: true, retention_days: 14, ...(asRecord(value.inbox) ?? {}) },
+    watch: {
+      enabled: true,
+      allowed_channels: [],
+      ...(asRecord(value.watch) ?? {}),
+      notification_rules: {
+        user_mentions: true,
+        waiting_on_user: true,
+        incident_language: true,
+        reopened_after_minutes: 120,
+        ...(asRecord(asRecord(value.watch)?.notification_rules) ?? {})
+      }
+    },
+    ...value,
+    config_version: 2,
+    ...(value.local_docs === undefined ? { local_docs: [] } : {}),
+    tools: { ...tools, providers: Array.isArray(tools?.providers) ? tools.providers : [] },
+    ...mergeProfileWritingStyle(value)
+  };
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
+}
+
+function mergeProfileWritingStyle(value: Record<string, unknown>): { profile?: Record<string, unknown> } {
+  const profile = asRecord(value.profile);
+  if (!profile) {
+    return {};
+  }
+  return {
+    profile: {
+      ...profile,
+      writing_style: {
+        preferred_format: "concise Slack reply with short paragraphs or bullets when helpful",
+        notes: [],
+        examples: [],
+        ...(asRecord(profile.writing_style) ?? {})
+      }
+    }
   };
 }
 
